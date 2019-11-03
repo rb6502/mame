@@ -16,21 +16,22 @@ class powerstack_state : public driver_device
 public:
 	powerstack_state(const machine_config &mconfig, device_type type, const char *tag)
 		: driver_device(mconfig, type, tag)
-//      , m_maincpu(*this, "maincpu")
+		//      , m_maincpu(*this, "maincpu")
 	{ }
 
-void powerstack(machine_config &config);
+	void powerstack(machine_config &config);
 private:
-//  required_device<cpu_device> m_maincpu;
+	//  required_device<cpu_device> m_maincpu;
 };
 
 static INPUT_PORTS_START( powerstack )
 INPUT_PORTS_END
 
-MACHINE_CONFIG_START(powerstack_state::powerstack)
-//  MCFG_DEVICE_ADD("maincpu", PPC604, 300'000'000) // PPC604E @ 300MHz
-//  MCFG_DEVICE_PROGRAM_MAP(mem_map)
-MACHINE_CONFIG_END
+void powerstack_state::powerstack(machine_config &config)
+{
+//  ppc604_device &maincpu(PPC604(config, "maincpu", 300'000'000)); // PPC604E @ 300MHz
+//  maincpu.set_addrmap(AS_PROGRAM, &powerstack_state::mem_map);
+}
 
 ROM_START( powerstk )
 	ROM_REGION( 0x80000, "roms", 0 )

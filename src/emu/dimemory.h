@@ -42,30 +42,6 @@ constexpr int TRANSLATE_FETCH_DEBUG     = (TRANSLATE_FETCH | TRANSLATE_DEBUG_MAS
 
 
 //**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_DEVICE_ADDRESS_MAP(_space, _map) \
-	dynamic_cast<device_memory_interface *>(device)->set_addrmap(_space, address_map_constructor(&std::remove_pointer_t<decltype(this)>::_map, tag(), this));
-
-#define MCFG_DEVICE_REMOVE_ADDRESS_MAP(_space) \
-	dynamic_cast<device_memory_interface *>(device)->set_addrmap(_space, address_map_constructor());
-
-#define MCFG_DEVICE_PROGRAM_MAP(_map) \
-	MCFG_DEVICE_ADDRESS_MAP(AS_PROGRAM, _map)
-
-#define MCFG_DEVICE_DATA_MAP(_map) \
-	MCFG_DEVICE_ADDRESS_MAP(AS_DATA, _map)
-
-#define MCFG_DEVICE_IO_MAP(_map) \
-	MCFG_DEVICE_ADDRESS_MAP(AS_IO, _map)
-
-#define MCFG_DEVICE_OPCODES_MAP(_map) \
-	MCFG_DEVICE_ADDRESS_MAP(AS_OPCODES, _map)
-
-
-
-//**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
 
@@ -123,16 +99,13 @@ public:
 		assert((0 <= spacenum) && (max_space_count() > spacenum));
 		m_addrspace.resize(std::max<std::size_t>(m_addrspace.size(), spacenum + 1));
 		assert(!m_addrspace[spacenum]);
-		m_addrspace[spacenum] = std::make_unique<Space>(manager, *this, spacenum);
+		m_addrspace[spacenum] = std::make_unique<Space>(manager, *this, spacenum, space_config(spacenum)->addr_width());
 	}
 	void prepare_maps() { for (auto const &space : m_addrspace) { if (space) { space->prepare_map(); } } }
 	void populate_from_maps() { for (auto const &space : m_addrspace) { if (space) { space->populate_from_map(); } } }
 	void allocate_memory() { for (auto const &space : m_addrspace) { if (space) { space->allocate_memory(); } } }
 	void locate_memory() { for (auto const &space : m_addrspace) { if (space) { space->locate_memory(); } } }
 	void set_log_unmap(bool log) { for (auto const &space : m_addrspace) { if (space) { space->set_log_unmap(log); } } }
-
-	// diagnostic functions
-	void dump(FILE *file) const;
 
 protected:
 	using space_config_vector = std::vector<std::pair<int, const address_space_config *>>;

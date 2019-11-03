@@ -57,7 +57,7 @@ k001005_renderer::k001005_renderer(device_t &parent, screen_device &screen, devi
 	}
 
 	// save state
-	parent.save_pointer(NAME(m_3dfifo.get()), 0x10000);
+	parent.save_pointer(NAME(m_3dfifo), 0x10000);
 	parent.save_item(NAME(m_3dfifo_ptr));
 	parent.save_item(NAME(*m_fb[0]));
 	parent.save_item(NAME(*m_fb[1]));
@@ -1210,9 +1210,9 @@ void k001005_device::device_start()
 
 	m_renderer = auto_alloc(machine(), k001005_renderer(*this, screen(), m_k001006));
 
-	save_pointer(NAME(m_ram[0].get()), 0x140000);
-	save_pointer(NAME(m_ram[1].get()), 0x140000);
-	save_pointer(NAME(m_fifo.get()), 0x800);
+	save_pointer(NAME(m_ram[0]), 0x140000);
+	save_pointer(NAME(m_ram[1]), 0x140000);
+	save_pointer(NAME(m_fifo), 0x800);
 	save_item(NAME(m_status));
 	save_item(NAME(m_ram_ptr));
 	save_item(NAME(m_fifo_read_ptr));
@@ -1308,7 +1308,7 @@ READ32_MEMBER( k001005_device::read )
 			}
 
 		default:
-			//osd_printf_debug("%s m_r: %08X, %08X\n", machine().describe_context().c_str(), offset, mem_mask);
+			//osd_printf_debug("%s m_r: %08X, %08X\n", machine().describe_context(), offset, mem_mask);
 			break;
 	}
 	return 0;
@@ -1322,7 +1322,7 @@ WRITE32_MEMBER( k001005_device::write )
 	{
 		case 0x000:         // FIFO write
 		{
-			//osd_printf_debug("%s K001005 FIFO write: %08X\n", machine().describe_context().c_str(), data);
+			//osd_printf_debug("%s K001005 FIFO write: %08X\n", machine().describe_context(), data);
 			if (m_status != 1 && m_status != 2)
 			{
 				if (m_fifo_write_ptr < 0x400)
@@ -1339,7 +1339,7 @@ WRITE32_MEMBER( k001005_device::write )
 				dsp->set_flag_input(1, ASSERT_LINE);
 			}
 
-		//  osd_printf_debug("%s K001005 FIFO write: %08X\n", machine().describe_context().c_str(), data);
+		//  osd_printf_debug("%s K001005 FIFO write: %08X\n", machine().describe_context(), data);
 			m_fifo[m_fifo_write_ptr] = data;
 			m_fifo_write_ptr++;
 			m_fifo_write_ptr &= 0x7ff;
@@ -1446,7 +1446,7 @@ WRITE32_MEMBER( k001005_device::write )
 			break;
 
 		default:
-			//osd_printf_debug("%s m_w: %08X, %08X, %08X\n", machine().describe_context().c_str(), data, offset, mem_mask);
+			//osd_printf_debug("%s m_w: %08X, %08X, %08X\n", machine().describe_context(), data, offset, mem_mask);
 			break;
 	}
 

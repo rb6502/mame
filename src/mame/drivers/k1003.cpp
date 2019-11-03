@@ -55,16 +55,18 @@ public:
 		, m_digits(*this, "digit%u", 0U)
 		{ }
 
+	void k1003(machine_config &config);
+
+private:
 	DECLARE_READ8_MEMBER(port2_r);
 	DECLARE_READ8_MEMBER(key_r);
 	DECLARE_WRITE8_MEMBER(disp_1_w);
 	DECLARE_WRITE8_MEMBER(disp_2_w);
 	DECLARE_WRITE8_MEMBER(disp_w);
 
-	void k1003(machine_config &config);
 	void k1003_io(address_map &map);
 	void k1003_mem(address_map &map);
-private:
+
 	uint8_t m_disp_1;
 	uint8_t m_disp_2;
 	uint8_t bit_to_dec(uint8_t val);
@@ -145,15 +147,16 @@ void k1003_state::machine_reset()
 {
 }
 
-MACHINE_CONFIG_START(k1003_state::k1003)
+void k1003_state::k1003(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu",I8008, 800000)
-	MCFG_DEVICE_PROGRAM_MAP(k1003_mem)
-	MCFG_DEVICE_IO_MAP(k1003_io)
+	I8008(config, m_maincpu, 800000);
+	m_maincpu->set_addrmap(AS_PROGRAM, &k1003_state::k1003_mem);
+	m_maincpu->set_addrmap(AS_IO, &k1003_state::k1003_io);
 
 	/* video hardware */
-	MCFG_DEFAULT_LAYOUT(layout_k1003)
-MACHINE_CONFIG_END
+	config.set_default_layout(layout_k1003);
+}
 
 
 /* ROM definition */

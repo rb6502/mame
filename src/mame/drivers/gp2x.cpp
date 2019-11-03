@@ -35,6 +35,9 @@ public:
 			m_maincpu_region(*this, "maincpu"),
 			m_ram(*this, "ram"){ }
 
+	void gp2x(machine_config &config);
+
+private:
 	required_device<cpu_device> m_maincpu;
 	required_region_ptr<uint32_t> m_maincpu_region;
 	DECLARE_READ32_MEMBER(gp2x_lcdc_r);
@@ -56,7 +59,6 @@ public:
 	uint32_t m_nand_ptr_temp;
 	uint32_t m_timer;
 	uint32_t screen_update_gp2x(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
-	void gp2x(machine_config &config);
 	void gp2x_map(address_map &map);
 };
 
@@ -360,22 +362,23 @@ void gp2x_state::gp2x_map(address_map &map)
 static INPUT_PORTS_START( gp2x )
 INPUT_PORTS_END
 
-MACHINE_CONFIG_START(gp2x_state::gp2x)
-	MCFG_DEVICE_ADD("maincpu", ARM9, 80000000)
-	MCFG_DEVICE_PROGRAM_MAP(gp2x_map)
+void gp2x_state::gp2x(machine_config &config)
+{
+	ARM9(config, m_maincpu, 80000000);
+	m_maincpu->set_addrmap(AS_PROGRAM, &gp2x_state::gp2x_map);
 
-	MCFG_PALETTE_ADD("palette", 32768)
+	PALETTE(config, "palette").set_entries(32768);
 
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(2500)) /* not accurate */
-	MCFG_SCREEN_SIZE(320, 240)
-	MCFG_SCREEN_VISIBLE_AREA(0, 319, 0, 239)
-	MCFG_SCREEN_UPDATE_DRIVER(gp2x_state, screen_update_gp2x)
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(2500)); /* not accurate */
+	screen.set_size(320, 240);
+	screen.set_visarea(0, 319, 0, 239);
+	screen.set_screen_update(FUNC(gp2x_state::screen_update_gp2x));
 
 	SPEAKER(config, "lspeaker").front_left();
 	SPEAKER(config, "rspeaker").front_right();
-MACHINE_CONFIG_END
+}
 
 ROM_START(gp2x)
 	ROM_REGION( 0x600000, "maincpu", 0 )    // contents of NAND flash

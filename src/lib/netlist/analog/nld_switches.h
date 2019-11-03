@@ -5,12 +5,10 @@
  *
  */
 
-#pragma once
-
 #ifndef NLD_SWITCHES_H_
 #define NLD_SWITCHES_H_
 
-#include "../nl_setup.h"
+#include "netlist/nl_setup.h"
 
 // ----------------------------------------------------------------------------------------
 // Macros

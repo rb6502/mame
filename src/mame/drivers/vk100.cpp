@@ -168,18 +168,12 @@ state machine and sees if the GO bit ever finishes and goes back to 0
 class vk100_state : public driver_device
 {
 public:
-	enum
-	{
-		TIMER_EXECUTE_VG
-	};
-
 	vk100_state(const machine_config &mconfig, device_type type, const char *tag) :
 		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
 		m_crtc(*this, "crtc"),
 		m_speaker(*this, "beeper"),
 		m_uart(*this, "i8251"),
-		m_dbrg(*this, COM5016T_TAG),
 		//m_i8251_rx_timer(nullptr),
 		//m_i8251_tx_timer(nullptr),
 		//m_sync_timer(nullptr),
@@ -189,11 +183,20 @@ public:
 	{
 	}
 
+	void vk100(machine_config &config);
+
+	void init_vk100();
+
+private:
+	enum
+	{
+		TIMER_EXECUTE_VG
+	};
+
 	required_device<cpu_device> m_maincpu;
 	required_device<mc6845_device> m_crtc;
 	required_device<beep_device> m_speaker;
 	required_device<i8251_device> m_uart;
-	required_device<com8116_device> m_dbrg;
 	//required_device<> m_i8251_rx_timer;
 	//required_device<> m_i8251_tx_timer;
 	//required_device<> m_sync_timer;
@@ -240,11 +243,10 @@ public:
 	DECLARE_WRITE8_MEMBER(vgREG);
 	DECLARE_WRITE8_MEMBER(vgEX);
 	DECLARE_WRITE8_MEMBER(KBDW);
-	DECLARE_WRITE8_MEMBER(BAUD);
 	DECLARE_READ8_MEMBER(vk100_keyboard_column_r);
 	DECLARE_READ8_MEMBER(SYSTAT_A);
 	DECLARE_READ8_MEMBER(SYSTAT_B);
-	void init_vk100();
+
 	virtual void machine_start() override;
 	virtual void video_start() override;
 	TIMER_CALLBACK_MEMBER(execute_vg);
@@ -257,10 +259,9 @@ public:
 	MC6845_UPDATE_ROW(crtc_update_row);
 	void vram_write(uint8_t data);
 
-	void vk100(machine_config &config);
 	void vk100_io(address_map &map);
 	void vk100_mem(address_map &map);
-protected:
+
 	virtual void device_timer(emu_timer &timer, device_timer_id id, int param, void *ptr) override;
 };
 
@@ -341,7 +342,7 @@ void vk100_state::device_timer(emu_timer &timer, device_timer_id id, int param, 
 		execute_vg(ptr, param);
 		break;
 	default:
-		assert_always(false, "Unknown id in vk100_state::device_timer");
+		throw emu_fatalerror("Unknown id in vk100_state::device_timer");
 	}
 }
 
@@ -617,11 +618,6 @@ WRITE8_MEMBER(vk100_state::KBDW)
  * 1 1 1 0 - 33   (5068800 / 33 = 16*9600)        = 9600 baud
  * 1 1 1 1 - 16   (5068800 / 16 = 16*19800)      ~= 19200 baud
  */
-WRITE8_MEMBER(vk100_state::BAUD)
-{
-	m_dbrg->write_str(data & 0x0f);
-	m_dbrg->write_stt(data >> 4);
-}
 
 /* port 0x40-0x47: "SYSTAT A"; various status bits, poorly documented in the tech manual
  * /GO    VDM1   VDM1   VDM1   VDM1   Dip     RST7.5 GND***
@@ -751,22 +747,20 @@ void vk100_state::vk100_io(address_map &map)
 	map(0x47, 0x47).mirror(0x98).w(FUNC(vk100_state::vgPMUL));   //LD PMUL (pattern multiplier)
 	map(0x60, 0x63).mirror(0x80).w(FUNC(vk100_state::vgREG));     //LD DU, DVM, DIR, WOPS (register file)
 	map(0x64, 0x67).mirror(0x80).w(FUNC(vk100_state::vgEX));    //EX MOV, DOT, VEC, ER
-	map(0x68, 0x68).mirror(0x83).w(FUNC(vk100_state::KBDW));   //KBDW (probably AM_MIRROR(0x03))
-	map(0x6C, 0x6C).mirror(0x83).w(FUNC(vk100_state::BAUD));   //LD BAUD (baud rate clock divider setting for i8251 tx and rx clocks) (probably AM_MIRROR(0x03))
-	map(0x70, 0x70).mirror(0x82).w(m_uart, FUNC(i8251_device::data_w)); //LD COMD (i8251 data reg)
-	map(0x71, 0x71).mirror(0x82).w(m_uart, FUNC(i8251_device::control_w)); //LD COM (i8251 control reg)
-	//AM_RANGE (0x74, 0x74) AM_MIRROR(0x83) AM_WRITE(unknown_74)
-	//AM_RANGE (0x78, 0x78) AM_MIRROR(0x83) AM_WRITE(kbdw)   //KBDW ?(mirror?)
-	//AM_RANGE (0x7C, 0x7C) AM_MIRROR(0x83) AM_WRITE(unknown_7C)
+	map(0x68, 0x68).mirror(0x83).w(FUNC(vk100_state::KBDW));   //KBDW (probably mirror(0x03))
+	map(0x6C, 0x6C).mirror(0x83).w(COM5016T_TAG, FUNC(com8116_device::stt_str_w));   //LD BAUD (baud rate clock divider setting for i8251 tx and rx clocks) (probably mirror(0x03))
+	map(0x70, 0x71).mirror(0x82).w(m_uart, FUNC(i8251_device::write)); //LD COMD
+	//map(0x74, 0x74).mirror(0x83).w(FUNC(vk100_state::unknown_74));
+	//map(0x78, 0x78).mirror(0x83).w(FUNC(vk100_state::kbdw));   //KBDW ?(mirror?)
+	//map(0x7C, 0x7C).mirror(0x83).w(FUNC(vk100_state::unknown_7C));
 	map(0x40, 0x47).mirror(0x80).r(FUNC(vk100_state::SYSTAT_A)); // SYSTAT A (state machine done and last 4 bits of vram, as well as dipswitches)
 	map(0x48, 0x48).mirror(0x87/*0x80*/).r(FUNC(vk100_state::SYSTAT_B)); // SYSTAT B (uart stuff)
-	map(0x50, 0x50).mirror(0x86).r(m_uart, FUNC(i8251_device::data_r)); // UART O
-	map(0x51, 0x51).mirror(0x86).r(m_uart, FUNC(i8251_device::status_r)); // UAR
-	//AM_RANGE (0x58, 0x58) AM_MIRROR(0x87) AM_READ(unknown_58)
-	//AM_RANGE (0x60, 0x60) AM_MIRROR(0x87) AM_READ(unknown_60)
-	//AM_RANGE (0x68, 0x68) AM_MIRROR(0x87) AM_READ(unknown_68) // NOT USED
-	//AM_RANGE (0x70, 0x70) AM_MIRROR(0x87) AM_READ(unknown_70)
-	//AM_RANGE (0x78, 0x7f) AM_MIRROR(0x87) AM_READ(unknown_78)
+	map(0x50, 0x51).mirror(0x86).r(m_uart, FUNC(i8251_device::read)); // UART O
+	//map(0x58, 0x58).mirror(0x87).r(FUNC(vk100_state::unknown_58));
+	//map(0x60, 0x60).mirror(0x87).r(FUNC(vk100_state::unknown_60));
+	//map(0x68, 0x68).mirror(0x87).r(FUNC(vk100_state::unknown_68)); // NOT USED
+	//map(0x70, 0x70).mirror(0x87).r(FUNC(vk100_state::unknown_70));
+	//map(0x78, 0x7f).mirror(0x87).r(FUNC(vk100_state::unknown_78));
 }
 
 /* Input ports */
@@ -1037,45 +1031,46 @@ MC6845_UPDATE_ROW( vk100_state::crtc_update_row )
 }
 
 
-MACHINE_CONFIG_START(vk100_state::vk100)
+void vk100_state::vk100(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", I8085A, XTAL(5'068'800))
-	MCFG_DEVICE_PROGRAM_MAP(vk100_mem)
-	MCFG_DEVICE_IO_MAP(vk100_io)
+	I8085A(config, m_maincpu, XTAL(5'068'800));
+	m_maincpu->set_addrmap(AS_PROGRAM, &vk100_state::vk100_mem);
+	m_maincpu->set_addrmap(AS_IO, &vk100_state::vk100_io);
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_RAW_PARAMS(XTAL(45'619'200)/3, 882, 0, 720, 370, 0, 350 ) // fake screen timings for startup until 6845 sets real ones
-	MCFG_SCREEN_UPDATE_DEVICE( "crtc", mc6845_device, screen_update )
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_raw(XTAL(45'619'200)/3, 882, 0, 720, 370, 0, 350 ); // fake screen timings for startup until 6845 sets real ones
+	screen.set_screen_update("crtc", FUNC(mc6845_device::screen_update));
 
-	MCFG_MC6845_ADD( "crtc", H46505, "screen", XTAL(45'619'200)/3/12)
-	MCFG_MC6845_SHOW_BORDER_AREA(false)
-	MCFG_MC6845_CHAR_WIDTH(12)
-	MCFG_MC6845_UPDATE_ROW_CB(vk100_state, crtc_update_row)
-	MCFG_MC6845_OUT_VSYNC_CB(WRITELINE(*this, vk100_state, crtc_vsync))
+	MC6845(config, m_crtc, 45.6192_MHz_XTAL/3/12); // unknown variant
+	m_crtc->set_screen("screen");
+	m_crtc->set_show_border_area(false);
+	m_crtc->set_char_width(12);
+	m_crtc->set_update_row_callback(FUNC(vk100_state::crtc_update_row));
+	m_crtc->out_vsync_callback().set(FUNC(vk100_state::crtc_vsync));
 
 	/* i8251 uart */
-	MCFG_DEVICE_ADD("i8251", I8251, 0)
-	MCFG_I8251_TXD_HANDLER(WRITELINE(RS232_TAG, rs232_port_device, write_txd))
-	MCFG_I8251_DTR_HANDLER(WRITELINE(RS232_TAG, rs232_port_device, write_dtr))
-	MCFG_I8251_RTS_HANDLER(WRITELINE(RS232_TAG, rs232_port_device, write_rts))
-	MCFG_I8251_RXRDY_HANDLER(WRITELINE(*this, vk100_state, i8251_rxrdy_int))
-	MCFG_I8251_TXRDY_HANDLER(WRITELINE(*this, vk100_state, i8251_txrdy_int))
+	I8251(config, m_uart, 0);
+	m_uart->txd_handler().set(RS232_TAG, FUNC(rs232_port_device::write_txd));
+	m_uart->dtr_handler().set(RS232_TAG, FUNC(rs232_port_device::write_dtr));
+	m_uart->rts_handler().set(RS232_TAG, FUNC(rs232_port_device::write_rts));
+	m_uart->rxrdy_handler().set(FUNC(vk100_state::i8251_rxrdy_int));
+	m_uart->txrdy_handler().set(FUNC(vk100_state::i8251_txrdy_int));
 
-	MCFG_DEVICE_ADD(RS232_TAG, RS232_PORT, default_rs232_devices, nullptr)
-	MCFG_RS232_RXD_HANDLER(WRITELINE("i8251", i8251_device, write_rxd))
-	MCFG_RS232_DSR_HANDLER(WRITELINE("i8251", i8251_device, write_dsr))
+	rs232_port_device &rs232(RS232_PORT(config, RS232_TAG, default_rs232_devices, nullptr));
+	rs232.rxd_handler().set(m_uart, FUNC(i8251_device::write_rxd));
+	rs232.dsr_handler().set(m_uart, FUNC(i8251_device::write_dsr));
 
-	MCFG_DEVICE_ADD(COM5016T_TAG, COM8116, XTAL(5'068'800))
-	MCFG_COM8116_FR_HANDLER(WRITELINE("i8251", i8251_device, write_rxc))
-	MCFG_COM8116_FT_HANDLER(WRITELINE("i8251", i8251_device, write_txc))
+	com8116_device &dbrg(COM8116(config, COM5016T_TAG, 5.0688_MHz_XTAL));
+	dbrg.fr_handler().set(m_uart, FUNC(i8251_device::write_rxc));
+	dbrg.ft_handler().set(m_uart, FUNC(i8251_device::write_txc));
 
-	MCFG_DEFAULT_LAYOUT( layout_vk100 )
+	config.set_default_layout(layout_vk100);
 
 	SPEAKER(config, "mono").front_center();
-	MCFG_DEVICE_ADD( "beeper", BEEP, 116 ) // 116 hz (page 172 of TM), but duty cycle is wrong here!
-	MCFG_SOUND_ROUTE( ALL_OUTPUTS, "mono", 0.25 )
-MACHINE_CONFIG_END
+	BEEP(config, m_speaker, 116).add_route(ALL_OUTPUTS, "mono", 0.25); // 116 hz (page 172 of TM), but duty cycle is wrong here!
+}
 
 /* ROM definition */
 /* according to http://www.computer.museum.uq.edu.au/pdf/EK-VK100-TM-001%20VK100%20Technical%20Manual.pdf

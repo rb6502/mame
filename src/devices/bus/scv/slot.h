@@ -28,7 +28,7 @@ enum
 
 // ======================> device_scv_cart_interface
 
-class device_scv_cart_interface : public device_slot_card_interface
+class device_scv_cart_interface : public device_interface
 {
 public:
 	// construction/destruction
@@ -62,11 +62,21 @@ protected:
 
 class scv_cart_slot_device : public device_t,
 								public device_image_interface,
-								public device_slot_interface
+								public device_single_card_slot_interface<device_scv_cart_interface>
 {
 public:
 	// construction/destruction
-	scv_cart_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
+	template <typename T>
+	scv_cart_slot_device(machine_config const &mconfig, char const *tag, device_t *owner, T &&opts, char const *dflt)
+		: scv_cart_slot_device(mconfig, tag, owner, 0)
+	{
+		option_reset();
+		opts(*this);
+		set_default_option(dflt);
+		set_fixed(false);
+	}
+
+	scv_cart_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock = 0);
 	virtual ~scv_cart_slot_device();
 
 	// image-level overrides
@@ -115,9 +125,5 @@ DECLARE_DEVICE_TYPE(SCV_CART_SLOT, scv_cart_slot_device)
  ***************************************************************************/
 
 #define SCVSLOT_ROM_REGION_TAG ":cart:rom"
-
-#define MCFG_SCV_CARTRIDGE_ADD(_tag,_slot_intf,_def_slot) \
-	MCFG_DEVICE_ADD(_tag, SCV_CART_SLOT, 0) \
-	MCFG_DEVICE_SLOT_INTERFACE(_slot_intf, _def_slot, false)
 
 #endif // MAME_BUS_SCV_SLOT_H

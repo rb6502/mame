@@ -460,8 +460,12 @@ void device_scheduler::timeslice()
 					delta += ATTOSECONDS_PER_SECOND;
 				assert(delta == (target - exec->m_localtime).as_attoseconds());
 
+				if (exec->m_attoseconds_per_cycle == 0)
+				{
+					exec->m_localtime = target;
+				}
 				// if we have enough for at least 1 cycle, do the math
-				if (delta >= exec->m_attoseconds_per_cycle)
+				else if (delta >= exec->m_attoseconds_per_cycle)
 				{
 					// compute how many cycles we want to execute
 					int ran = exec->m_cycles_running = divu_64x32(u64(delta) >> exec->m_divshift, exec->m_divisor);
@@ -752,29 +756,13 @@ void device_scheduler::rebuild_execute_list()
 	// if we haven't yet set a scheduling quantum, do it now
 	if (m_quantum_list.empty())
 	{
-		// set the core scheduling quantum
-		attotime min_quantum = machine().config().m_minimum_quantum;
-
-		// if none specified default to 60Hz
-		if (min_quantum.is_zero())
-			min_quantum = attotime::from_hz(60);
+		// set the core scheduling quantum, ensuring it's no longer than 60Hz
+		attotime min_quantum = machine().config().maximum_quantum(attotime::from_hz(60));
 
 		// if the configuration specifies a device to make perfect, pick that as the minimum
-		if (!machine().config().m_perfect_cpu_quantum.empty())
-		{
-			device_t *device = machine().root_device().subdevice(machine().config().m_perfect_cpu_quantum.c_str());
-			if (device == nullptr)
-				fatalerror("Device '%s' specified for perfect interleave is not present!\n", machine().config().m_perfect_cpu_quantum.c_str());
-
-			device_execute_interface *exec;
-			if (!device->interface(exec))
-				fatalerror("Device '%s' specified for perfect interleave is not an executing device!\n", machine().config().m_perfect_cpu_quantum.c_str());
-
-			min_quantum = std::min(attotime(0, exec->minimum_quantum()), min_quantum);
-		}
-
-		// make sure it's no higher than 60Hz
-		min_quantum = std::min(min_quantum, attotime::from_hz(60));
+		device_execute_interface *const exec(machine().config().perfect_quantum_device());
+		if (exec)
+			min_quantum = (std::min)(attotime(0, exec->minimum_quantum()), min_quantum);
 
 		// inform the timer system of our decision
 		add_scheduling_quantum(min_quantum, attotime::never);

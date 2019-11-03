@@ -11,18 +11,20 @@
 #pragma once
 
 #include "audio/trackfld.h"
+#include "machine/74259.h"
 #include "sound/dac.h"
 #include "sound/sn76496.h"
 #include "sound/vlm5030.h"
 
 #include "emupal.h"
 #include "screen.h"
+#include "tilemap.h"
 
 class trackfld_state : public driver_device
 {
 public:
-	trackfld_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	trackfld_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_spriteram2(*this, "spriteram2"),
 		m_scroll(*this, "scroll"),
 		m_spriteram(*this, "spriteram"),
@@ -30,6 +32,7 @@ public:
 		m_videoram(*this, "videoram"),
 		m_colorram(*this, "colorram"),
 		m_maincpu(*this, "maincpu"),
+		m_mainlatch(*this, "mainlatch"),
 		m_audiocpu(*this, "audiocpu"),
 		m_soundbrd(*this, "trackfld_audio"),
 		m_sn(*this, "snsnd"),
@@ -37,17 +40,8 @@ public:
 		m_dac(*this, "dac"),
 		m_screen(*this, "screen"),
 		m_gfxdecode(*this, "gfxdecode"),
-		m_palette(*this, "palette") { }
-
-	DECLARE_WRITE8_MEMBER(questions_bank_w);
-	DECLARE_WRITE8_MEMBER(trackfld_videoram_w);
-	DECLARE_WRITE8_MEMBER(trackfld_colorram_w);
-	DECLARE_WRITE8_MEMBER(atlantol_gfxbank_w);
-	DECLARE_READ8_MEMBER(trackfld_SN76496_r);
-	DECLARE_READ8_MEMBER(trackfld_speech_r);
-	DECLARE_WRITE8_MEMBER(trackfld_VLM5030_control_w);
-	DECLARE_WRITE8_MEMBER( konami_SN76496_latch_w ) { m_SN76496_latch = data; };
-	DECLARE_WRITE8_MEMBER( konami_SN76496_w ) { m_sn->write(m_SN76496_latch); };
+		m_palette(*this, "palette")
+	{ }
 
 	void reaktor(machine_config &config);
 	void atlantol(machine_config &config);
@@ -64,6 +58,17 @@ public:
 	void init_mastkin();
 	void init_trackfldnz();
 
+private:
+	DECLARE_WRITE8_MEMBER(questions_bank_w);
+	DECLARE_WRITE8_MEMBER(trackfld_videoram_w);
+	DECLARE_WRITE8_MEMBER(trackfld_colorram_w);
+	DECLARE_WRITE8_MEMBER(atlantol_gfxbank_w);
+	DECLARE_READ8_MEMBER(trackfld_SN76496_r);
+	DECLARE_READ8_MEMBER(trackfld_speech_r);
+	DECLARE_WRITE8_MEMBER(trackfld_VLM5030_control_w);
+	DECLARE_WRITE8_MEMBER( konami_SN76496_latch_w ) { m_SN76496_latch = data; };
+	DECLARE_WRITE8_MEMBER( konami_SN76496_w ) { m_sn->write(m_SN76496_latch); };
+
 	void hyprolyb_sound_map(address_map &map);
 	void main_map(address_map &map);
 	void mastkin_map(address_map &map);
@@ -74,7 +79,7 @@ public:
 	void wizzquiz_map(address_map &map);
 	void yieartf_map(address_map &map);
 	void hyprolyb_adpcm_map(address_map &map);
-private:
+
 	/* memory pointers */
 	required_shared_ptr<uint8_t> m_spriteram2;
 	required_shared_ptr<uint8_t> m_scroll;
@@ -85,6 +90,7 @@ private:
 
 	/* devices */
 	required_device<cpu_device> m_maincpu;
+	optional_device<ls259_device> m_mainlatch;
 	optional_device<cpu_device> m_audiocpu;
 	optional_device<trackfld_audio_device> m_soundbrd;
 	optional_device<sn76496_device> m_sn;
@@ -117,7 +123,7 @@ private:
 	DECLARE_MACHINE_START(trackfld);
 	DECLARE_MACHINE_RESET(trackfld);
 	DECLARE_VIDEO_START(trackfld);
-	DECLARE_PALETTE_INIT(trackfld);
+	void trackfld_palette(palette_device &palette) const;
 	DECLARE_VIDEO_START(atlantol);
 	uint32_t screen_update_trackfld(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	DECLARE_WRITE_LINE_MEMBER(vblank_irq);

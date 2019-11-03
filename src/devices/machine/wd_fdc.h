@@ -5,8 +5,9 @@
 
 #pragma once
 
-#include "imagedev/floppy.h"
 #include "fdc_pll.h"
+
+class floppy_image_device;
 
 /*
  * The Western Digital floppy controller family
@@ -45,34 +46,16 @@
 
  */
 
-#define MCFG_WD_FDC_FORCE_READY \
-	downcast<wd_fdc_device_base *>(device)->set_force_ready(true);
-
-#define MCFG_WD_FDC_DISABLE_MOTOR_CONTROL \
-	downcast<wd_fdc_device_base *>(device)->set_disable_motor_control(true);
-
-#define MCFG_WD_FDC_INTRQ_CALLBACK(_write) \
-	devcb = &downcast<wd_fdc_device_base &>(*device).set_intrq_wr_callback(DEVCB_##_write);
-
-#define MCFG_WD_FDC_DRQ_CALLBACK(_write) \
-	devcb = &downcast<wd_fdc_device_base &>(*device).set_drq_wr_callback(DEVCB_##_write);
-
-#define MCFG_WD_FDC_HLD_CALLBACK(_write) \
-	devcb = &downcast<wd_fdc_device_base &>(*device).set_hld_wr_callback(DEVCB_##_write);
-
-#define MCFG_WD_FDC_ENP_CALLBACK(_write) \
-	devcb = &downcast<wd_fdc_device_base &>(*device).set_enp_wr_callback(DEVCB_##_write);
-
-#define MCFG_WD_FDC_ENMF_CALLBACK(_read) \
-	devcb = &downcast<wd_fdc_device_base &>(*device).set_enmf_rd_callback(DEVCB_##_read);
 
 class wd_fdc_device_base : public device_t {
 public:
-	template <class Object> devcb_base &set_intrq_wr_callback(Object &&cb) { return intrq_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_drq_wr_callback(Object &&cb) { return drq_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_hld_wr_callback(Object &&cb) { return hld_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_enp_wr_callback(Object &&cb) { return enp_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_enmf_rd_callback(Object &&cb) { return enmf_cb.set_callback(std::forward<Object>(cb)); }
+	auto intrq_wr_callback() { return intrq_cb.bind(); }
+	auto drq_wr_callback() { return drq_cb.bind(); }
+	auto hld_wr_callback() { return hld_cb.bind(); }
+	auto enp_wr_callback() { return enp_cb.bind(); }
+	auto sso_wr_callback() { return sso_cb.bind(); }
+	auto ready_wr_callback() { return ready_cb.bind(); }
+	auto enmf_rd_callback() { return enmf_cb.bind(); }
 
 	void soft_reset();
 
@@ -81,30 +64,20 @@ public:
 	void set_force_ready(bool force_ready);
 	void set_disable_motor_control(bool _disable_motor_control);
 
-	void write_cmd(uint8_t val);
-	uint8_t read_status();
-	DECLARE_READ8_MEMBER( status_r ) { return read_status(); }
-	DECLARE_WRITE8_MEMBER( cmd_w ) { write_cmd(data); }
+	void cmd_w(uint8_t val);
+	uint8_t status_r();
 
-	void write_track(uint8_t val);
-	uint8_t read_track();
-	DECLARE_READ8_MEMBER( track_r ) { return read_track(); }
-	DECLARE_WRITE8_MEMBER( track_w ) { write_track(data); }
+	void track_w(uint8_t val);
+	uint8_t track_r();
 
-	void write_sector(uint8_t val);
-	uint8_t read_sector();
-	DECLARE_READ8_MEMBER( sector_r ) { return read_sector(); }
-	DECLARE_WRITE8_MEMBER( sector_w ) { write_sector(data); }
+	void sector_w(uint8_t val);
+	uint8_t sector_r();
 
-	void write_data(uint8_t val);
-	uint8_t read_data();
-	DECLARE_READ8_MEMBER( data_r ) { return read_data(); }
-	DECLARE_WRITE8_MEMBER( data_w ) { write_data(data); }
+	void data_w(uint8_t val);
+	uint8_t data_r();
 
-	void gen_w(int reg, uint8_t val);
-	uint8_t gen_r(int reg);
-	DECLARE_READ8_MEMBER( read ) { return gen_r(offset); }
-	DECLARE_WRITE8_MEMBER( write ) { gen_w(offset,data); }
+	void write(offs_t reg, uint8_t val);
+	uint8_t read(offs_t reg);
 
 	DECLARE_READ_LINE_MEMBER(intrq_r);
 	DECLARE_READ_LINE_MEMBER(drq_r);
@@ -113,6 +86,8 @@ public:
 	DECLARE_WRITE_LINE_MEMBER(hlt_w);
 
 	DECLARE_READ_LINE_MEMBER(enp_r);
+
+	DECLARE_WRITE_LINE_MEMBER(mr_w);
 
 	void index_callback(floppy_image_device *floppy, int state);
 
@@ -129,7 +104,6 @@ protected:
 	bool head_control;
 	bool motor_control;
 	bool ready_hooked;
-	bool nonsticky_immint;
 	int clock_ratio;
 	const int *step_times;
 	int delay_register_commit;
@@ -305,7 +279,8 @@ private:
 
 	emu_timer *t_gen, *t_cmd, *t_track, *t_sector;
 
-	bool dden, status_type_1, intrq, drq, hld, hlt, enp, force_ready, disable_motor_control;
+	bool dden, status_type_1, intrq, drq, hld, hlt, enp, mr;
+	bool force_ready, disable_motor_control;
 	int main_state, sub_state;
 	uint8_t command, track, sector, data, status, intrq_cond;
 	int last_dir;
@@ -316,7 +291,7 @@ private:
 
 	live_info cur_live, checkpoint_live;
 
-	devcb_write_line intrq_cb, drq_cb, hld_cb, enp_cb;
+	devcb_write_line intrq_cb, drq_cb, hld_cb, enp_cb, sso_cb, ready_cb;
 	devcb_read_line enmf_cb;
 
 	uint8_t format_last_byte;
@@ -380,6 +355,8 @@ private:
 
 	void drop_drq();
 	void set_drq();
+
+	void update_sso();
 };
 
 class wd_fdc_analog_device_base : public wd_fdc_device_base {

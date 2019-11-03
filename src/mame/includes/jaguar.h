@@ -15,6 +15,7 @@
 #include "cdrom.h"
 #include "imagedev/chd_cd.h"
 #include "screen.h"
+#include "emupal.h"
 
 #ifndef ENABLE_SPEEDUP_HACKS
 #define ENABLE_SPEEDUP_HACKS 1
@@ -22,8 +23,8 @@
 
 /* CoJag and Jaguar have completely different XTALs, pixel clock in Jaguar is the same as the GPU one */
 #define COJAG_PIXEL_CLOCK       XTAL(14'318'181)
-#define JAGUAR_CLOCK            XTAL(25'590'906) // NTSC
-// XTAL(25'593'900) PAL, TODO
+#define JAGUAR_CLOCK            XTAL(26'590'906) // NTSC
+// XTAL(26'593'900) PAL, TODO
 
 class jaguar_state : public driver_device
 {
@@ -54,6 +55,7 @@ public:
 		, m_config_io(*this, "CONFIG")
 		, m_joy(*this, "JOY%u", 0U)
 		, m_buttons(*this, "BUTTONS%u", 0U)
+		, m_system(*this, "SYSTEM")
 		, m_is_r3000(false)
 		, m_is_cojag(false)
 		, m_hacks_enabled(false)
@@ -74,9 +76,33 @@ public:
 		, m_eeprom(*this, "eeprom")
 		, m_ide(*this, "ide")
 		, m_screen(*this, "screen")
+		, m_palette(*this, "palette")
 	{
 	}
 
+	void cojag68k(machine_config &config);
+	void cojagr3k(machine_config &config);
+	void cojagr3k_rom(machine_config &config);
+	void jaguarcd(machine_config &config);
+	void jaguar(machine_config &config);
+
+	void init_jaguar();
+	void init_jaguarcd();
+	void init_area51mx();
+	void init_maxforce();
+	void init_freezeat();
+	void init_fishfren();
+	void init_a51mxr3k();
+	void init_area51();
+	void init_freezeat4();
+	void init_freezeat5();
+	void init_freezeat6();
+	void init_vcircle();
+	void init_freezeat3();
+	void init_freezeat2();
+	void init_area51a();
+
+private:
 	// devices
 	required_device<cpu_device> m_maincpu;
 	required_device<jaguargpu_cpu_device> m_gpu;
@@ -105,6 +131,7 @@ public:
 	optional_ioport m_config_io;
 	optional_ioport_array<8> m_joy;
 	optional_ioport_array<8> m_buttons;
+	optional_ioport m_system;
 
 	// configuration
 	bool m_is_r3000;
@@ -224,51 +251,31 @@ public:
 	DECLARE_WRITE16_MEMBER(butch_regs_w16);
 	DECLARE_READ32_MEMBER(butch_regs_r);
 	DECLARE_WRITE32_MEMBER(butch_regs_w);
-	void init_jaguar();
-	void init_jaguarcd();
-	void init_area51mx();
-	void init_maxforce();
-	void init_freezeat();
-	void init_fishfren();
-	void init_a51mxr3k();
-	void init_area51();
-	void init_freezeat4();
-	void init_freezeat5();
-	void init_freezeat6();
-	void init_vcircle();
-	void init_freezeat3();
-	void init_freezeat2();
-	void init_area51a();
 
-	// from audio/jaguar.c
+	// from audio/jaguar.cpp
 	DECLARE_READ16_MEMBER( jerry_regs_r );
 	DECLARE_WRITE16_MEMBER( jerry_regs_w );
 	DECLARE_READ32_MEMBER( serial_r );
 	DECLARE_WRITE32_MEMBER( serial_w );
 	void serial_update();
 
-	// from video/jaguar.c
+	// from video/jaguar.cpp
 	DECLARE_READ32_MEMBER( blitter_r );
 	DECLARE_WRITE32_MEMBER( blitter_w );
 	DECLARE_READ16_MEMBER( tom_regs_r );
 	DECLARE_WRITE16_MEMBER( tom_regs_w );
 	DECLARE_READ32_MEMBER( cojag_gun_input_r );
 	uint32_t screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
+	void jagpal_ycc(palette_device &palette) const;
 
 	DECLARE_WRITE_LINE_MEMBER( gpu_cpu_int );
 	DECLARE_WRITE_LINE_MEMBER( dsp_cpu_int );
 	DECLARE_WRITE_LINE_MEMBER( external_int );
 
-	image_init_result quickload(device_image_interface &image, const char *file_type, int quickload_size);
+	image_init_result quickload_cb(device_image_interface &image, const char *file_type, int quickload_size);
 	void cart_start();
-	IRQ_CALLBACK_MEMBER(jaguar_irq_callback);
-	DECLARE_DEVICE_IMAGE_LOAD_MEMBER( jaguar_cart );
-	DECLARE_QUICKLOAD_LOAD_MEMBER( jaguar );
-	void cojag68k(machine_config &config);
-	void cojagr3k(machine_config &config);
-	void cojagr3k_rom(machine_config &config);
-	void jaguarcd(machine_config &config);
-	void jaguar(machine_config &config);
+	DECLARE_DEVICE_IMAGE_LOAD_MEMBER( cart_load );
+	void cpu_space_map(address_map &map);
 	void dsp_map(address_map &map);
 	void dsp_rom_map(address_map &map);
 	void gpu_map(address_map &map);
@@ -282,7 +289,7 @@ public:
 	void m68020_map(address_map &map);
 	void r3000_map(address_map &map);
 	void r3000_rom_map(address_map &map);
-protected:
+
 	// timer IDs
 	enum
 	{
@@ -381,4 +388,5 @@ protected:
 	optional_device<eeprom_serial_93cxx_device> m_eeprom;
 	optional_device<vt83c461_device> m_ide;
 	required_device<screen_device> m_screen;
+	required_device<palette_device> m_palette;
 };

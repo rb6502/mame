@@ -10,6 +10,7 @@
 #include "sound/discrete.h"
 #include "emupal.h"
 #include "screen.h"
+#include "tilemap.h"
 
 class sprint8_state : public driver_device
 {
@@ -29,7 +30,7 @@ public:
 
 	void sprint8(machine_config &config);
 
-protected:
+private:
 	DECLARE_READ8_MEMBER(collision_r);
 	DECLARE_READ8_MEMBER(input_r);
 	DECLARE_WRITE8_MEMBER(lockout_w);
@@ -40,7 +41,7 @@ protected:
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 	virtual void video_start() override;
-	DECLARE_PALETTE_INIT(sprint8);
+	void sprint8_palette(palette_device &palette) const;
 
 	TILE_GET_INFO_MEMBER(get_tile_info1);
 	TILE_GET_INFO_MEMBER(get_tile_info2);
@@ -55,12 +56,11 @@ protected:
 	void sprint8_audio(machine_config &config);
 	void sprint8_map(address_map &map);
 
-private:
 	required_device<cpu_device> m_maincpu;
 	required_device<gfxdecode_device> m_gfxdecode;
 	required_device<screen_device> m_screen;
 	required_device<palette_device> m_palette;
-	required_device<discrete_device> m_discrete;
+	required_device<discrete_sound_device> m_discrete;
 
 	required_shared_ptr<uint8_t> m_video_ram;
 	required_shared_ptr<uint8_t> m_pos_h_ram;

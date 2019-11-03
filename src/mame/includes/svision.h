@@ -9,26 +9,14 @@
 #ifndef MAME_INCLUDES_SVISION_H
 #define MAME_INCLUDES_SVISION_H
 
+#pragma once
+
 #include "cpu/m6502/m65c02.h"
 #include "machine/timer.h"
 #include "audio/svis_snd.h"
 #include "bus/generic/slot.h"
 #include "bus/generic/carts.h"
 #include "emupal.h"
-
-struct svision_t
-{
-	emu_timer *timer1;
-	int timer_shot;
-};
-
-struct svision_pet_t
-{
-	int state;
-	int on, clock, data;
-	uint8_t input;
-	emu_timer *timer;
-};
 
 struct tvlink_t
 {
@@ -54,18 +42,6 @@ public:
 		, m_bank2(*this, "bank2")
 	{ }
 
-	DECLARE_WRITE_LINE_MEMBER(sound_irq_w);
-	DECLARE_READ8_MEMBER(svision_r);
-	DECLARE_WRITE8_MEMBER(svision_w);
-	DECLARE_READ8_MEMBER(tvlink_r);
-	DECLARE_WRITE8_MEMBER(tvlink_w);
-	void init_svisions();
-	void init_svision();
-	uint32_t screen_update_svision(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
-	uint32_t screen_update_tvlink(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
-	DECLARE_WRITE_LINE_MEMBER(frame_int_w);
-	DECLARE_DEVICE_IMAGE_LOAD_MEMBER(svision_cart);
-
 	void svisionp(machine_config &config);
 	void svisions(machine_config &config);
 	void tvlinkp(machine_config &config);
@@ -73,13 +49,42 @@ public:
 	void svisionn(machine_config &config);
 	void svision_base(machine_config &config);
 
+	void init_svisions();
+	void init_svision();
+
 protected:
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 
-	DECLARE_PALETTE_INIT(svision);
-	DECLARE_PALETTE_INIT(svisionp);
-	DECLARE_PALETTE_INIT(svisionn);
+private:
+	struct svision_t
+	{
+		emu_timer *timer1;
+		int timer_shot;
+	};
+
+	struct svision_pet_t
+	{
+		int state;
+		int on, clock, data;
+		uint8_t input;
+		emu_timer *timer;
+	};
+
+	DECLARE_WRITE_LINE_MEMBER(sound_irq_w);
+	DECLARE_READ8_MEMBER(svision_r);
+	DECLARE_WRITE8_MEMBER(svision_w);
+	DECLARE_READ8_MEMBER(tvlink_r);
+	DECLARE_WRITE8_MEMBER(tvlink_w);
+
+	uint32_t screen_update_svision(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
+	uint32_t screen_update_tvlink(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
+	DECLARE_WRITE_LINE_MEMBER(frame_int_w);
+	DECLARE_DEVICE_IMAGE_LOAD_MEMBER(cart_load);
+
+	void svision_palette(palette_device &palette) const;
+	void svisionp_palette(palette_device &palette) const;
+	void svisionn_palette(palette_device &palette) const;
 	DECLARE_MACHINE_RESET(tvlink);
 
 	enum

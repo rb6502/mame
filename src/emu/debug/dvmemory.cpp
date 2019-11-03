@@ -305,7 +305,7 @@ void debug_view_memory::view_update()
 
 				if (m_data_format <= 8) {
 					u64 chunkdata;
-					bool ismapped = read(m_bytes_per_chunk, address + chunknum * m_steps_per_chunk, chunkdata);
+					bool ismapped = read_chunk(address, chunknum, chunkdata);
 					dest = destrow + m_section[1].m_pos + 1 + chunkindex * spacing;
 					for (int ch = 0; ch < posdata.m_spacing; ch++, dest++)
 						if (dest >= destmin && dest < destmax)
@@ -323,7 +323,7 @@ void debug_view_memory::view_update()
 					int ch;
 					char valuetext[64];
 					u64 chunkdata = 0;
-					floatx80 chunkdata80 = { 0, 0 };
+					extFloat80_t chunkdata80 = { 0, 0 };
 					bool ismapped;
 
 					if (m_data_format != 11)
@@ -341,8 +341,8 @@ void debug_view_memory::view_update()
 							sprintf(valuetext, "%.24g", u64_to_double(chunkdata));
 							break;
 						case 11:
-							float64 f64 = floatx80_to_float64(chunkdata80);
-							sprintf(valuetext, "%.24g", u64_to_double(f64));
+							float64_t f64 = extF80M_to_f64(&chunkdata80);
+							sprintf(valuetext, "%.24g", u64_to_double(f64.v));
 							break;
 						}
 					else {
@@ -464,14 +464,16 @@ void debug_view_memory::view_char(int chval)
 			if (hexchar == nullptr)
 				break;
 
+			const debug_view_memory_source &source = downcast<const debug_view_memory_source &>(*m_source);
+			offs_t address = (source.m_space != nullptr) ? source.m_space->byte_to_address(pos.m_address) : pos.m_address;
 			u64 data;
-			bool ismapped = read(m_bytes_per_chunk, pos.m_address, data);
+			bool ismapped = read(m_bytes_per_chunk, address, data);
 			if (!ismapped)
 				break;
 
 			data &= ~(u64(0x0f) << pos.m_shift);
 			data |= u64(hexchar - hexvals) << pos.m_shift;
-			write(m_bytes_per_chunk, pos.m_address, data);
+			write(m_bytes_per_chunk, address, data);
 			// fall through to the right-arrow press
 		}
 
@@ -635,11 +637,11 @@ bool debug_view_memory::needs_recompute()
 		const debug_view_memory_source &source = downcast<const debug_view_memory_source &>(*m_source);
 		offs_t val = m_expression.value();
 		if (source.m_space)
-			val = source.m_space->address_to_byte(val & source.m_space->logaddrmask());
+			val = source.m_space->address_to_byte(val & (m_no_translation ? source.m_space->addrmask() : source.m_space->logaddrmask()));
 		recompute = true;
-		m_topleft.y = (val - m_byte_offset) / m_bytes_per_row;
-		m_topleft.y = std::max(m_topleft.y, 0);
-		m_topleft.y = std::min(m_topleft.y, m_total.y - 1);
+
+		m_byte_offset = val % m_bytes_per_row;
+		m_topleft.y = std::min(s32(val / m_bytes_per_row), m_total.y - 1);
 
 		set_cursor_pos(cursor_pos(val, m_bytes_per_chunk * 8 - 4));
 	}
@@ -810,24 +812,49 @@ bool debug_view_memory::read(u8 size, offs_t offs, u64 &data)
 //  read - read a 80 bit value
 //-------------------------------------------------
 
-bool debug_view_memory::read(u8 size, offs_t offs, floatx80 &data)
+bool debug_view_memory::read(u8 size, offs_t offs, extFloat80_t &data)
 {
 	u64 t;
 	bool mappedhi, mappedlo;
 	const debug_view_memory_source &source = downcast<const debug_view_memory_source &>(*m_source);
 
 	if (source.m_endianness == ENDIANNESS_LITTLE) {
-		mappedlo = read(8, offs, data.low);
+		mappedlo = read(8, offs, data.signif);
 		mappedhi = read(2, offs+8, t);
-		data.high = (bits16)t;
+		data.signExp = u16(t);
 	}
 	else {
 		mappedhi = read(2, offs, t);
-		data.high = (bits16)t;
-		mappedlo = read(8, offs + 2, data.low);
+		data.signExp = u16(t);
+		mappedlo = read(8, offs + 2, data.signif);
 	}
 
 	return mappedhi && mappedlo;
+}
+
+
+//-------------------------------------------------
+//  read_chunk - memory view data reader helper
+//-------------------------------------------------
+
+bool debug_view_memory::read_chunk(offs_t address, int chunknum, u64 &chunkdata)
+{
+	const debug_view_memory_source &source = downcast<const debug_view_memory_source &>(*m_source);
+	if (source.m_space) {
+		address += source.m_space->byte_to_address(chunknum * m_bytes_per_chunk);
+		if (!source.m_space->byte_to_address(m_bytes_per_chunk)) {
+			// if chunks are too small to be addressable, read a minimal chunk and split it up
+			u8 minbytes = 1 << -source.m_space->addr_shift();
+			bool ismapped = read(minbytes, address, chunkdata);
+			u8 suboffset = (chunknum * m_bytes_per_chunk) & (minbytes - 1);
+			chunkdata >>= 8 * (source.m_space->endianness() == ENDIANNESS_LITTLE ? suboffset : minbytes - m_bytes_per_chunk - suboffset);
+			chunkdata &= ~u64(0) >> (64 - 8 * m_bytes_per_chunk);
+			return ismapped;
+		}
+	}
+	else
+		address += chunknum * m_bytes_per_chunk;
+	return read(m_bytes_per_chunk, address, chunkdata);
 }
 
 

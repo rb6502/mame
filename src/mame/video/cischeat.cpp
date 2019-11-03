@@ -224,7 +224,7 @@ READ16_MEMBER(cischeat_state::cischeat_ip_select_r)
 WRITE16_MEMBER(cischeat_state::cischeat_soundlatch_w)
 {
 	/* Sound CPU: reads latch during int 4, and stores command */
-	m_soundlatch->write(space, 0, data, mem_mask);
+	m_soundlatch->write(data);
 	m_soundcpu->set_input_line(4, HOLD_LINE);
 }
 
@@ -582,8 +582,15 @@ void cischeat_state::cischeat_draw_sprites(bitmap_ind16 &bitmap , const rectangl
 
 		sx      =   source[ 3 ];
 		sy      =   source[ 4 ];
-		sx      =   (sx & 0x1ff) - (sx & 0x200);
-		sy      =   (sy & 0x1ff) - (sy & 0x200);
+		// TODO: was & 0x1ff with 0x200 as sprite wrap sign, looks incorrect with Grand Prix Star
+		//       during big car on side view in attract mode (a tyre gets stuck on the right of the screen)
+		//       this arrangement works with both games (otherwise Part 2 gets misaligned bleachers sprites)
+		sx      =   (sx & 0x7ff);
+		sy      =   (sy & 0x7ff);
+		if(sx & 0x400)
+			sx -= 0x800;
+		if(sy & 0x400)
+			sy -= 0x800;
 
 		/* use fixed point values (16.16), for accuracy */
 		sx <<= 16;
@@ -860,7 +867,7 @@ uint32_t cischeat_state::screen_update_bigrun(screen_device &screen, bitmap_ind1
 	int i;
 
 	bitmap.fill(0x1000, cliprect);
-	
+
 	for (i = 7; i >= 4; i--)
 	{
 		/* bitmap, cliprect, road, min_priority, max_priority, transparency */
@@ -1002,11 +1009,11 @@ if ( machine().input().code_pressed(KEYCODE_Z) || machine().input().code_pressed
 	{
 		address_space &space = m_maincpu->space(AS_PROGRAM);
 
-		popmessage("Cmd: %04X Pos:%04X Lim:%04X Inp:%04X",
+		popmessage("Cmd: %04X Pos:%04X Lim:%04X Inp:%02X",
 							m_scudhamm_motor_command,
 							scudhamm_motor_pos_r(space,0,0xffff),
 							scudhamm_motor_status_r(space,0,0xffff),
-							scudhamm_analog_r(space,0,0xffff) );
+							scudhamm_analog_r() );
 
 #if 0
 	// captflag

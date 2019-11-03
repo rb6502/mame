@@ -280,6 +280,7 @@ MH86171 Color Palette RAMDAC
 #include "emupal.h"
 #include "screen.h"
 #include "speaker.h"
+#include "tilemap.h"
 
 #include "pirpok2.lh"
 
@@ -302,18 +303,8 @@ public:
 		m_lamps(*this, "lamp%u", 0U)
 	{ }
 
-	DECLARE_WRITE8_MEMBER(sfbonus_videoram_w);
-	DECLARE_WRITE8_MEMBER(sfbonus_bank_w);
-	DECLARE_READ8_MEMBER(sfbonus_2800_r);
-	DECLARE_READ8_MEMBER(sfbonus_2801_r);
-	DECLARE_READ8_MEMBER(sfbonus_2c00_r);
-	DECLARE_READ8_MEMBER(sfbonus_2c01_r);
-	DECLARE_READ8_MEMBER(sfbonus_3800_r);
-	DECLARE_WRITE8_MEMBER(sfbonus_1800_w);
-	DECLARE_WRITE8_MEMBER(sfbonus_3800_w);
-	DECLARE_WRITE8_MEMBER(sfbonus_3000_w);
-	DECLARE_WRITE8_MEMBER(sfbonus_2801_w);
-	DECLARE_WRITE8_MEMBER(sfbonus_2c01_w);
+	void sfbonus(machine_config &config);
+
 	void init_hldspin2d();
 	void init_ch2000v3();
 	void init_fb5v();
@@ -430,6 +421,21 @@ public:
 	void init_tighookv();
 	void init_robadv();
 	void init_pirpok2d();
+
+private:
+	DECLARE_WRITE8_MEMBER(sfbonus_videoram_w);
+	DECLARE_WRITE8_MEMBER(sfbonus_bank_w);
+	DECLARE_READ8_MEMBER(sfbonus_2800_r);
+	DECLARE_READ8_MEMBER(sfbonus_2801_r);
+	DECLARE_READ8_MEMBER(sfbonus_2c00_r);
+	DECLARE_READ8_MEMBER(sfbonus_2c01_r);
+	DECLARE_READ8_MEMBER(sfbonus_3800_r);
+	DECLARE_WRITE8_MEMBER(sfbonus_1800_w);
+	DECLARE_WRITE8_MEMBER(sfbonus_3800_w);
+	DECLARE_WRITE8_MEMBER(sfbonus_3000_w);
+	DECLARE_WRITE8_MEMBER(sfbonus_2801_w);
+	DECLARE_WRITE8_MEMBER(sfbonus_2c01_w);
+
 	void sfbonus_bitswap(uint8_t xor0, uint8_t b00, uint8_t b01, uint8_t b02, uint8_t b03, uint8_t b04, uint8_t b05, uint8_t b06,uint8_t b07,
 						uint8_t xor1, uint8_t b10, uint8_t b11, uint8_t b12, uint8_t b13, uint8_t b14, uint8_t b15, uint8_t b16,uint8_t b17,
 						uint8_t xor2, uint8_t b20, uint8_t b21, uint8_t b22, uint8_t b23, uint8_t b24, uint8_t b25, uint8_t b26,uint8_t b27,
@@ -445,12 +451,11 @@ public:
 	TILE_GET_INFO_MEMBER(get_sfbonus_reel4_tile_info);
 	void draw_reel_layer(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect, int category);
 	uint32_t screen_update_sfbonus(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
-	void sfbonus(machine_config &config);
+
 	void ramdac_map(address_map &map);
 	void sfbonus_io(address_map &map);
 	void sfbonus_map(address_map &map);
 
-protected:
 	virtual void machine_start() override { m_lamps.resolve(); }
 	virtual void machine_reset() override;
 	virtual void video_start() override;
@@ -923,11 +928,11 @@ void sfbonus_state::video_start()
 {
 	m_temp_reel_bitmap = std::make_unique<bitmap_ind16>(1024,512);
 
-	m_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(sfbonus_state::get_sfbonus_tile_info),this),TILEMAP_SCAN_ROWS,8,8, 128, 64);
-	m_reel_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(sfbonus_state::get_sfbonus_reel_tile_info),this),TILEMAP_SCAN_ROWS,8,32, 64, 16);
-	m_reel2_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(sfbonus_state::get_sfbonus_reel2_tile_info),this),TILEMAP_SCAN_ROWS,8,32, 64, 16);
-	m_reel3_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(sfbonus_state::get_sfbonus_reel3_tile_info),this),TILEMAP_SCAN_ROWS,8,32, 64, 16);
-	m_reel4_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(sfbonus_state::get_sfbonus_reel4_tile_info),this),TILEMAP_SCAN_ROWS,8,32, 64, 16);
+	m_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(sfbonus_state::get_sfbonus_tile_info)), TILEMAP_SCAN_ROWS, 8, 8, 128, 64);
+	m_reel_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(sfbonus_state::get_sfbonus_reel_tile_info)), TILEMAP_SCAN_ROWS, 8, 32, 64, 16);
+	m_reel2_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(sfbonus_state::get_sfbonus_reel2_tile_info)), TILEMAP_SCAN_ROWS, 8, 32, 64, 16);
+	m_reel3_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(sfbonus_state::get_sfbonus_reel3_tile_info)), TILEMAP_SCAN_ROWS, 8, 32, 64, 16);
+	m_reel4_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(sfbonus_state::get_sfbonus_reel4_tile_info)), TILEMAP_SCAN_ROWS, 8, 32, 64, 16);
 
 	m_tilemap->set_transparent_pen(0);
 	m_reel_tilemap->set_transparent_pen(255);
@@ -1372,36 +1377,37 @@ void sfbonus_state::ramdac_map(address_map &map)
 }
 
 
-MACHINE_CONFIG_START(sfbonus_state::sfbonus)
-	MCFG_DEVICE_ADD("maincpu", Z80, 6000000) // custom packaged z80 CPU ?? Mhz
-	MCFG_DEVICE_PROGRAM_MAP(sfbonus_map)
-	MCFG_DEVICE_IO_MAP(sfbonus_io)
-	MCFG_DEVICE_VBLANK_INT_DRIVER("screen", sfbonus_state, irq0_line_hold)
-	//MCFG_DEVICE_PERIODIC_INT_DRIVER(sfbonus_state, nmi_line_pulse, 100)
+void sfbonus_state::sfbonus(machine_config &config)
+{
+	Z80(config, m_maincpu, 6000000); // custom packaged z80 CPU ?? Mhz
+	m_maincpu->set_addrmap(AS_PROGRAM, &sfbonus_state::sfbonus_map);
+	m_maincpu->set_addrmap(AS_IO, &sfbonus_state::sfbonus_io);
+	m_maincpu->set_vblank_int("screen", FUNC(sfbonus_state::irq0_line_hold));
+	//m_maincpu->set_periodic_int(FUNC(sfbonus_state::nmi_line_pulse), attotime::from_hz(100));
 
 
-	MCFG_NVRAM_ADD_0FILL("nvram")
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_0);
 
-	MCFG_DEVICE_ADD("gfxdecode", GFXDECODE, "palette", gfx_sfbonus)
+	GFXDECODE(config, m_gfxdecode, m_palette, gfx_sfbonus);
 
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(0))
-	MCFG_SCREEN_SIZE(128*8, 64*8)
-	MCFG_SCREEN_VISIBLE_AREA(0*8, 512-1, 0*8, 288-1)
-	MCFG_SCREEN_UPDATE_DRIVER(sfbonus_state, screen_update_sfbonus)
-	MCFG_SCREEN_PALETTE("palette")
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(0));
+	screen.set_size(128*8, 64*8);
+	screen.set_visarea(0*8, 512-1, 0*8, 288-1);
+	screen.set_screen_update(FUNC(sfbonus_state::screen_update_sfbonus));
+	screen.set_palette(m_palette);
 
-	MCFG_PALETTE_ADD("palette", 0x100*2) // *2 for priority workaraound / custom drawing
+	PALETTE(config, m_palette).set_entries(0x100*2); // *2 for priority workaraound / custom drawing
 
-	MCFG_RAMDAC_ADD("ramdac", ramdac_map, "palette")
+	ramdac_device &ramdac(RAMDAC(config, "ramdac", 0, m_palette));
+	ramdac.set_addrmap(0, &sfbonus_state::ramdac_map);
 
 
 	/* Parrot 3 seems fine at 1 Mhz, but Double Challenge isn't? */
 	SPEAKER(config, "mono").front_center();
-	MCFG_DEVICE_ADD("oki", OKIM6295, 1000000, okim6295_device::PIN7_HIGH) // clock frequency & pin 7 not verified
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 1.00)
-MACHINE_CONFIG_END
+	OKIM6295(config, "oki", 1000000, okim6295_device::PIN7_HIGH).add_route(ALL_OUTPUTS, "mono", 1.00); // clock frequency & pin 7 not verified
+}
 
 /* Super Ball */
 ROM_START( suprball )
@@ -5864,29 +5870,29 @@ void sfbonus_state::init_sfbonus_common()
 {
 	m_tilemap_ram = std::make_unique<uint8_t[]>(0x4000);
 	memset(m_tilemap_ram.get(), 0xff, 0x4000);
-	save_pointer(NAME(m_tilemap_ram.get()), 0x4000);
+	save_pointer(NAME(m_tilemap_ram), 0x4000);
 
 	m_reel_ram = std::make_unique<uint8_t[]>(0x0800);
 	memset(m_reel_ram.get(), 0xff ,0x0800);
-	save_pointer(NAME(m_reel_ram.get()), 0x0800);
+	save_pointer(NAME(m_reel_ram), 0x0800);
 
 	m_reel2_ram = std::make_unique<uint8_t[]>(0x0800);
 	memset(m_reel2_ram.get(), 0xff, 0x0800);
-	save_pointer(NAME(m_reel2_ram.get()), 0x0800);
+	save_pointer(NAME(m_reel2_ram), 0x0800);
 
 	m_reel3_ram = std::make_unique<uint8_t[]>(0x0800);
 	memset(m_reel3_ram.get(), 0xff, 0x0800);
-	save_pointer(NAME(m_reel3_ram.get()), 0x0800);
+	save_pointer(NAME(m_reel3_ram), 0x0800);
 
 	m_reel4_ram = std::make_unique<uint8_t[]>(0x0800);
 	memset(m_reel4_ram.get(), 0xff, 0x0800);
-	save_pointer(NAME(m_reel4_ram.get()), 0x0800);
+	save_pointer(NAME(m_reel4_ram), 0x0800);
 
 	m_videoram = std::make_unique<uint8_t[]>(0x10000);
 
 	memset(m_videoram.get(), 0xff, 0x10000);
 
-	save_pointer(NAME(m_videoram.get()), 0x10000);
+	save_pointer(NAME(m_videoram), 0x10000);
 }
 
 void sfbonus_state::sfbonus_bitswap(

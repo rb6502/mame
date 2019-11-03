@@ -21,20 +21,6 @@
 class irobot_state : public driver_device
 {
 public:
-	struct irmb_ops
-	{
-		const struct irmb_ops *nxtop;
-		uint32_t func;
-		uint32_t diradd;
-		uint32_t latchmask;
-		uint32_t *areg;
-		uint32_t *breg;
-		uint8_t cycles;
-		uint8_t diren;
-		uint8_t flags;
-		uint8_t ramsel;
-	};
-
 	irobot_state(const machine_config &mconfig, device_type type, const char *tag) :
 		driver_device(mconfig, type, tag),
 		m_videoram(*this, "videoram"),
@@ -55,7 +41,21 @@ public:
 
 	void irobot(machine_config &config);
 
-protected:
+private:
+	struct irmb_ops
+	{
+		const struct irmb_ops *nxtop;
+		uint32_t func;
+		uint32_t diradd;
+		uint32_t latchmask;
+		uint32_t *areg;
+		uint32_t *breg;
+		uint8_t cycles;
+		uint8_t diren;
+		uint8_t flags;
+		uint8_t ramsel;
+	};
+
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 	virtual void video_start() override;
@@ -72,7 +72,7 @@ protected:
 	DECLARE_WRITE8_MEMBER(irobot_paletteram_w);
 	DECLARE_READ8_MEMBER(quad_pokeyn_r);
 	DECLARE_WRITE8_MEMBER(quad_pokeyn_w);
-	DECLARE_PALETTE_INIT(irobot);
+	void irobot_palette(palette_device &palette) const;
 	uint32_t screen_update_irobot(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	TIMER_CALLBACK_MEMBER(scanline_callback);
 	TIMER_DEVICE_CALLBACK_MEMBER(irobot_irvg_done_callback);
@@ -86,7 +86,6 @@ protected:
 	void load_oproms();
 	void irmb_run();
 
-private:
 	required_shared_ptr<uint8_t> m_videoram;
 	uint8_t m_vg_clear;
 	uint8_t m_bufsel;
@@ -113,6 +112,7 @@ private:
 	int m_ir_ymin;
 	int m_ir_xmax;
 	int m_ir_ymax;
+	emu_timer *m_scanline_timer;
 
 	required_device<cpu_device> m_maincpu;
 	required_device<gfxdecode_device> m_gfxdecode;

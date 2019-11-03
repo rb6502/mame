@@ -35,16 +35,17 @@ public:
 		, m_colors(*this, "colors")
 	{ }
 
+	void dorachan(machine_config &config);
+
+private:
 	DECLARE_WRITE8_MEMBER(control_w);
 	DECLARE_WRITE8_MEMBER(protection_w);
 	DECLARE_READ8_MEMBER(protection_r);
 	DECLARE_READ8_MEMBER(v128_r);
 	uint32_t screen_update_dorachan(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
-	void dorachan(machine_config &config);
 	void dorachan_io_map(address_map &map);
 	void dorachan_map(address_map &map);
 
-private:
 	// internal state
 	uint8_t m_flip_screen;
 	uint16_t m_prot_value;
@@ -225,23 +226,23 @@ void dorachan_state::machine_reset()
 	m_prot_value = 0;
 }
 
-MACHINE_CONFIG_START(dorachan_state::dorachan)
-
+void dorachan_state::dorachan(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", Z80, 2000000)
-	MCFG_DEVICE_PROGRAM_MAP(dorachan_map)
-	MCFG_DEVICE_IO_MAP(dorachan_io_map)
-	MCFG_DEVICE_PERIODIC_INT_DRIVER(dorachan_state, irq0_line_hold, 2*60)
+	Z80(config, m_maincpu, 2000000);
+	m_maincpu->set_addrmap(AS_PROGRAM, &dorachan_state::dorachan_map);
+	m_maincpu->set_addrmap(AS_IO, &dorachan_state::dorachan_io_map);
+	m_maincpu->set_periodic_int(FUNC(dorachan_state::irq0_line_hold), attotime::from_hz(2*60));
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_SIZE(32*8, 32*8)
-	MCFG_SCREEN_VISIBLE_AREA(0*8, 32*8-1, 1*8, 31*8-1)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_UPDATE_DRIVER(dorachan_state, screen_update_dorachan)
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_size(32*8, 32*8);
+	m_screen->set_visarea(0*8, 32*8-1, 1*8, 31*8-1);
+	m_screen->set_refresh_hz(60);
+	m_screen->set_screen_update(FUNC(dorachan_state::screen_update_dorachan));
 
-	MCFG_PALETTE_ADD_3BIT_BGR("palette")
-MACHINE_CONFIG_END
+	PALETTE(config, m_palette, palette_device::BGR_3BIT);
+}
 
 
 

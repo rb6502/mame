@@ -1,7 +1,12 @@
 // license:BSD-3-Clause
 // copyright-holders:Roberto Fresca
+#ifndef MAME_INCLUDES_SNOOKR10_H
+#define MAME_INCLUDES_SNOOKR10_H
+
+#pragma once
 
 #include "emupal.h"
+#include "tilemap.h"
 
 class snookr10_state : public driver_device
 {
@@ -15,6 +20,12 @@ public:
 		m_lamps(*this, "lamp%u", 0U)
 	{ }
 
+	void apple10(machine_config &config);
+	void snookr10(machine_config &config);
+	void crystalc(machine_config &config);
+	void tenballs(machine_config &config);
+
+private:
 	DECLARE_READ8_MEMBER(dsw_port_1_r);
 	DECLARE_READ8_MEMBER(port2000_8_r);
 	DECLARE_WRITE8_MEMBER(output_port_0_w);
@@ -24,21 +35,16 @@ public:
 	TILE_GET_INFO_MEMBER(get_bg_tile_info);
 	TILE_GET_INFO_MEMBER(apple10_get_bg_tile_info);
 	TILE_GET_INFO_MEMBER(crystalc_get_bg_tile_info);
-	DECLARE_PALETTE_INIT(snookr10);
+	void snookr10_palette(palette_device &palette) const;
 	DECLARE_VIDEO_START(apple10);
 	DECLARE_VIDEO_START(crystalc);
-	DECLARE_PALETTE_INIT(apple10);
-	DECLARE_PALETTE_INIT(crystalc);
+	void apple10_palette(palette_device &palette) const;
+	void crystalc_palette(palette_device &palette) const;
 	uint32_t screen_update_snookr10(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
-	void apple10(machine_config &config);
-	void snookr10(machine_config &config);
-	void crystalc(machine_config &config);
-	void tenballs(machine_config &config);
 	void crystalc_map(address_map &map);
 	void snookr10_map(address_map &map);
 	void tenballs_map(address_map &map);
 
-protected:
 	virtual void machine_start() override { m_lamps.resolve(); }
 	virtual void video_start() override;
 
@@ -57,3 +63,5 @@ protected:
 	required_device<gfxdecode_device> m_gfxdecode;
 	output_finder<7> m_lamps;
 };
+
+#endif // MAME_INCLUDES_SNOOKR10_H

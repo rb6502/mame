@@ -49,9 +49,13 @@ public:
 		m_subcpu(*this, "subcpu"),
 		m_seta001(*this, "spritegen"),
 		m_palette(*this, "palette"),
+		m_iox_io(*this, "IOX"),
 		m_leds(*this, "led%u", 0U)
 	{ }
 
+	void thedealr(machine_config &config);
+
+private:
 	// IOX
 	DECLARE_READ8_MEMBER(iox_r);
 	DECLARE_WRITE8_MEMBER(iox_w);
@@ -67,23 +71,22 @@ public:
 	TIMER_DEVICE_CALLBACK_MEMBER(thedealr_interrupt);
 
 	// video
-	DECLARE_PALETTE_INIT(thedealr);
+	void thedealr_palette(palette_device &palette) const;
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	DECLARE_WRITE_LINE_MEMBER(screen_vblank);
-	void thedealr(machine_config &config);
-	void thedealr(address_map &map);
+
+	void thedealr_main(address_map &map);
 	void thedealr_sub(address_map &map);
 
-protected:
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 
-private:
 	// devices
 	required_device<cpu_device> m_maincpu;
 	required_device<cpu_device> m_subcpu;
 	required_device<seta001_device> m_seta001;
 	required_device<palette_device> m_palette;
+	optional_ioport m_iox_io;
 	output_finder<8> m_leds;
 };
 
@@ -93,13 +96,13 @@ private:
 
 ***************************************************************************/
 
-PALETTE_INIT_MEMBER(thedealr_state,thedealr)
+void thedealr_state::thedealr_palette(palette_device &palette) const
 {
-	const uint8_t *color_prom = memregion("proms")->base();
+	uint8_t const *const color_prom = memregion("proms")->base();
 
 	for (int i = 0; i < palette.entries(); i++)
 	{
-		int col = (color_prom[i] << 8) + color_prom[i + 512];
+		int const col = (color_prom[i] << 8) | color_prom[i + 512];
 		palette.set_pen_color(i, pal5bit(col >> 10), pal5bit(col >> 5), pal5bit(col >> 0));
 	}
 }
@@ -111,7 +114,7 @@ uint32_t thedealr_state::screen_update(screen_device &screen, bitmap_ind16 &bitm
 	m_seta001->set_bg_yoffsets(  0x11+1, -0x10 );   // + is up (down with flip)
 	m_seta001->set_fg_yoffsets( -0x12+1, -0x01 );
 
-	m_seta001->draw_sprites(screen, bitmap, cliprect, 0x1000, 1);
+	m_seta001->draw_sprites(screen, bitmap, cliprect, 0x1000);
 	return 0;
 }
 
@@ -202,7 +205,7 @@ WRITE8_MEMBER(thedealr_state::iox_w)
 		{
 			case 0x01:  // inputs?
 			{
-				uint16_t buttons = ioport("IOX")->read();
+				uint16_t buttons = m_iox_io->read();
 				m_iox_ret = 0;
 				for (int i = 0; i < 16; ++i)
 				{
@@ -279,7 +282,7 @@ WRITE8_MEMBER(thedealr_state::unk_w)
 //  popmessage("UNK %02x", data);
 }
 
-void thedealr_state::thedealr(address_map &map)
+void thedealr_state::thedealr_main(address_map &map)
 {
 	map(0x0000, 0x07ff).ram().share("nvram");
 
@@ -537,45 +540,45 @@ TIMER_DEVICE_CALLBACK_MEMBER(thedealr_state::thedealr_interrupt)
 		m_maincpu->set_input_line(INPUT_LINE_IRQ0, ASSERT_LINE);
 }
 
-MACHINE_CONFIG_START(thedealr_state::thedealr)
-
+void thedealr_state::thedealr(machine_config &config)
+{
 	// basic machine hardware
-	MCFG_DEVICE_ADD("maincpu", R65C02, XTAL(16'000'000)/8)   // 2 MHz?
-	MCFG_DEVICE_PROGRAM_MAP(thedealr)
-	MCFG_TIMER_DRIVER_ADD_SCANLINE("scantimer", thedealr_state, thedealr_interrupt, "screen", 0, 1)
+	R65C02(config, m_maincpu, XTAL(16'000'000)/8);   // 2 MHz?
+	m_maincpu->set_addrmap(AS_PROGRAM, &thedealr_state::thedealr_main);
 
-	MCFG_DEVICE_ADD("subcpu", R65C02, XTAL(16'000'000)/8)    // 2 MHz?
-	MCFG_DEVICE_PROGRAM_MAP(thedealr_sub)
+	TIMER(config, "scantimer").configure_scanline(FUNC(thedealr_state::thedealr_interrupt), "screen", 0, 1);
 
-	MCFG_NVRAM_ADD_0FILL("nvram")
+	R65C02(config, m_subcpu, XTAL(16'000'000)/8);    // 2 MHz?
+	m_subcpu->set_addrmap(AS_PROGRAM, &thedealr_state::thedealr_sub);
 
-	MCFG_WATCHDOG_ADD("watchdog")
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_0);
 
-	MCFG_DEVICE_ADD("spritegen", SETA001_SPRITE, 0)
-	MCFG_SETA001_SPRITE_GFXDECODE("gfxdecode")
+	WATCHDOG_TIMER(config, "watchdog");
+
+	SETA001_SPRITE(config, m_seta001, 0);
+	m_seta001->set_gfxdecode_tag("gfxdecode");
 
 	// video hardware
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(0))
-	MCFG_SCREEN_SIZE(512, 256)
-	MCFG_SCREEN_VISIBLE_AREA(0, 384-1, 0+30, 256-1)
-	MCFG_SCREEN_UPDATE_DRIVER(thedealr_state, screen_update)
-	MCFG_SCREEN_VBLANK_CALLBACK(WRITELINE(*this, thedealr_state, screen_vblank))
-	MCFG_DEVCB_CHAIN_OUTPUT(INPUTLINE("subcpu", INPUT_LINE_NMI))
-	MCFG_SCREEN_PALETTE("palette")
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(0));
+	screen.set_size(512, 256);
+	screen.set_visarea(0, 384-1, 0+30, 256-1);
+	screen.set_screen_update(FUNC(thedealr_state::screen_update));
+	screen.screen_vblank().set(FUNC(thedealr_state::screen_vblank));
+	screen.screen_vblank().append_inputline(m_subcpu, INPUT_LINE_NMI);
+	screen.set_palette(m_palette);
 
-	MCFG_DEVICE_ADD("gfxdecode", GFXDECODE, "palette", gfx_thedealr)
-	MCFG_PALETTE_ADD("palette", 512)
-	MCFG_PALETTE_INIT_OWNER(thedealr_state,thedealr)
+	GFXDECODE(config, "gfxdecode", m_palette, gfx_thedealr);
+	PALETTE(config, m_palette, FUNC(thedealr_state::thedealr_palette), 512);
 
 	// sound hardware
 	SPEAKER(config, "mono").front_center();
-	MCFG_DEVICE_ADD("aysnd", YM2149, XTAL(16'000'000)/8)   // 2 MHz?
-	MCFG_AY8910_PORT_A_READ_CB(IOPORT("DSW2"))
-	MCFG_AY8910_PORT_B_READ_CB(IOPORT("DSW1"))
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 0.50)
-MACHINE_CONFIG_END
+	ym2149_device &aysnd(YM2149(config, "aysnd", XTAL(16'000'000)/8));   // 2 MHz?
+	aysnd.port_a_read_callback().set_ioport("DSW2");
+	aysnd.port_b_read_callback().set_ioport("DSW1");
+	aysnd.add_route(ALL_OUTPUTS, "mono", 0.50);
+}
 
 /***************************************************************************
 

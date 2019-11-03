@@ -33,16 +33,19 @@ public:
 		m_lamps(*this, "lamp%u", 0U)
 	{ }
 
+	void mw18w(machine_config &config);
+
+	DECLARE_CUSTOM_INPUT_MEMBER(mw18w_sensors_r);
+
+private:
 	DECLARE_WRITE8_MEMBER(mw18w_sound0_w);
 	DECLARE_WRITE8_MEMBER(mw18w_sound1_w);
 	DECLARE_WRITE8_MEMBER(mw18w_lamps_w);
 	DECLARE_WRITE8_MEMBER(mw18w_led_display_w);
 	DECLARE_WRITE8_MEMBER(mw18w_irq0_clear_w);
-	DECLARE_CUSTOM_INPUT_MEMBER(mw18w_sensors_r);
-	void mw18w(machine_config &config);
 	void mw18w_map(address_map &map);
 	void mw18w_portmap(address_map &map);
-private:
+
 	virtual void machine_start() override { m_digits.resolve(); m_lamps.resolve(); }
 	required_device<cpu_device> m_maincpu;
 	output_finder<10> m_digits;
@@ -216,7 +219,7 @@ static INPUT_PORTS_START( mw18w )
 	PORT_BIT( 0x08, IP_ACTIVE_LOW, IPT_UNKNOWN ) // left/right sw.
 	PORT_BIT( 0x10, IP_ACTIVE_LOW, IPT_UNUSED )
 	PORT_BIT( 0x20, IP_ACTIVE_LOW, IPT_UNUSED )
-	PORT_BIT( 0xc0, IP_ACTIVE_HIGH, IPT_CUSTOM ) PORT_CUSTOM_MEMBER(DEVICE_SELF, mw18w_state, mw18w_sensors_r, nullptr)
+	PORT_BIT( 0xc0, IP_ACTIVE_HIGH, IPT_CUSTOM ) PORT_CUSTOM_MEMBER(mw18w_state, mw18w_sensors_r)
 
 	PORT_START("IN1")
 	PORT_BIT( 0x1f, 0x00, IPT_PEDAL ) PORT_REMAP_TABLE(mw18w_controller_table + 0x20) PORT_SENSITIVITY(100) PORT_KEYDELTA(1) PORT_NAME("Gas Pedal")
@@ -276,21 +279,21 @@ INPUT_PORTS_END
 
 ***************************************************************************/
 
-MACHINE_CONFIG_START(mw18w_state::mw18w)
-
+void mw18w_state::mw18w(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", Z80, XTAL(19'968'000)/8)
-	MCFG_DEVICE_PERIODIC_INT_DRIVER(mw18w_state, irq0_line_assert, 960.516) // 555 IC
-	MCFG_DEVICE_PROGRAM_MAP(mw18w_map)
-	MCFG_DEVICE_IO_MAP(mw18w_portmap)
+	Z80(config, m_maincpu, XTAL(19'968'000)/8);
+	m_maincpu->set_periodic_int(FUNC(mw18w_state::irq0_line_assert), attotime::from_hz(960.516)); // 555 IC
+	m_maincpu->set_addrmap(AS_PROGRAM, &mw18w_state::mw18w_map);
+	m_maincpu->set_addrmap(AS_IO, &mw18w_state::mw18w_portmap);
 
-	MCFG_WATCHDOG_ADD("watchdog")
+	WATCHDOG_TIMER(config, "watchdog");
 
 	/* no video! */
 
 	/* sound hardware */
 	//...
-MACHINE_CONFIG_END
+}
 
 
 

@@ -154,40 +154,40 @@ void _3do_state::machine_reset()
 	m_clio.cstatbits = 0x01; /* bit 0 = reset of clio caused by power on */
 }
 
-MACHINE_CONFIG_START(_3do_state::_3do)
-
+void _3do_state::_3do(machine_config &config)
+{
 	/* Basic machine hardware */
-	MCFG_DEVICE_ADD( m_maincpu, ARM7_BE, XTAL(50'000'000)/4 )
-	MCFG_DEVICE_PROGRAM_MAP( main_mem)
+	ARM7_BE(config, m_maincpu, XTAL(50'000'000)/4);
+	m_maincpu->set_addrmap(AS_PROGRAM, &_3do_state::main_mem);
 
-	MCFG_NVRAM_ADD_1FILL(m_nvram)
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_1);
 
-	MCFG_TIMER_DRIVER_ADD_PERIODIC("timer_x16", _3do_state, timer_x16_cb, attotime::from_hz(12000)) // TODO: timing
+	TIMER(config, "timer_x16").configure_periodic(FUNC(_3do_state::timer_x16_cb), attotime::from_hz(12000)); // TODO: timing
 
-	MCFG_SCREEN_ADD(m_screen, RASTER)
-	MCFG_SCREEN_RAW_PARAMS( X2_CLOCK_NTSC / 2, 1592, 254, 1534, 263, 22, 262 )
-	MCFG_SCREEN_UPDATE_DRIVER(_3do_state, screen_update)
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_raw(X2_CLOCK_NTSC / 2, 1592, 254, 1534, 263, 22, 262);
+	m_screen->set_screen_update(FUNC(_3do_state::screen_update));
 
-	MCFG_CDROM_ADD("cdrom")
-MACHINE_CONFIG_END
+	CDROM(config, "cdrom");
+}
 
 
-MACHINE_CONFIG_START(_3do_state::_3do_pal)
-
+void _3do_state::_3do_pal(machine_config &config)
+{
 	/* Basic machine hardware */
-	MCFG_DEVICE_ADD(m_maincpu, ARM7_BE, XTAL(50'000'000)/4 )
-	MCFG_DEVICE_PROGRAM_MAP( main_mem)
+	ARM7_BE(config, m_maincpu, XTAL(50'000'000)/4);
+	m_maincpu->set_addrmap(AS_PROGRAM, &_3do_state::main_mem);
 
-	MCFG_NVRAM_ADD_1FILL(m_nvram)
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_1);
 
-	MCFG_TIMER_DRIVER_ADD_PERIODIC("timer_x16", _3do_state, timer_x16_cb, attotime::from_hz(12000)) // TODO: timing
+	TIMER(config, "timer_x16").configure_periodic(FUNC(_3do_state::timer_x16_cb), attotime::from_hz(12000)); // TODO: timing
 
-	MCFG_SCREEN_ADD(m_screen, RASTER)
-	MCFG_SCREEN_RAW_PARAMS( X2_CLOCK_PAL / 2, 1592, 254, 1534, 263, 22, 262 ) // TODO: proper params
-	MCFG_SCREEN_UPDATE_DRIVER(_3do_state, screen_update)
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_raw(X2_CLOCK_PAL / 2, 1592, 254, 1534, 263, 22, 262); // TODO: proper params
+	m_screen->set_screen_update(FUNC(_3do_state::screen_update));
 
-	MCFG_CDROM_ADD("cdrom")
-MACHINE_CONFIG_END
+	CDROM(config, "cdrom");
+}
 
 #if 0
 #define NTSC_BIOS \
@@ -233,14 +233,14 @@ ROM_START(3do_pal)
 	ROMX_LOAD( "goldstar.bin", 0x000000, 0x100000, CRC(b6f5028b) SHA1(c4a2e5336f77fb5f743de1eea2cda43675ee2de7), ROM_BIOS(1) )
 	ROM_SYSTEM_BIOS( 2, "panafz1", "Panasonic FZ-1 R.E.A.L. 3DO Interactive Multiplayer" )
 	ROMX_LOAD( "panafz1.bin", 0x000000, 0x100000, CRC(c8c8ff89) SHA1(34bf189111295f74d7b7dfc1f304d98b8d36325a), ROM_BIOS(2) )
-	
+
 	ROM_REGION32_BE( 0x200000, "overlay", 0 )
 	ROM_COPY( "bios", 0, 0, 0x200000 )
 ROM_END
 
 ROM_START(orbatak)
 	NTSC_BIOS
-	
+
 	DISK_REGION( "cdrom" )
 	DISK_IMAGE_READONLY( "orbatak", 0, SHA1(25cb3b889cf09dbe5faf2b0ca4aae5e03453da00) )
 ROM_END
@@ -260,14 +260,14 @@ ROM_END
 
 ROM_START(md23do)
 	ALG_BIOS
-	
+
 	DISK_REGION( "cdrom" )
 	DISK_IMAGE_READONLY( "mad dog ii", 0, SHA1(0117c1fd279f42e942648ca55fa75dd45da37a4f) )
 ROM_END
 
 ROM_START(sht3do)
 	ALG_BIOS
-	
+
 	DISK_REGION( "cdrom" )
 	DISK_IMAGE_READONLY( "shootout at old tucson", 0, SHA1(bd42213c6b460b5b6153a8b2b41d0a114171e86e) )
 ROM_END
@@ -288,7 +288,7 @@ CONS( 1993, 3do_pal, 3do,    0,      _3do_pal,   3do,    _3do_state, empty_init,
 // Misc 3do Arcade games
 GAME( 1993, 3dobios, 0,       _3do,    3do,   _3do_state, empty_init, ROT0,     "The 3DO Company",      "3DO Bios",            MACHINE_NOT_WORKING | MACHINE_NO_SOUND | MACHINE_IS_BIOS_ROOT )
 
-GAME( 199?, orbatak, 3dobios, _3do,    3do,   _3do_state, empty_init, ROT0,     "<unknown>",            "Orbatak (prototype)", MACHINE_NOT_WORKING | MACHINE_NO_SOUND )
+GAME( 1995, orbatak, 3dobios, _3do,    3do,   _3do_state, empty_init, ROT0,     "American Laser Games", "Orbatak (prototype)", MACHINE_NOT_WORKING | MACHINE_NO_SOUND )
 // Beavis and Butthead (prototype)
 
 

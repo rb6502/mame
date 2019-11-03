@@ -137,8 +137,6 @@ void msx_slot_disk1_device::device_start()
 
 	save_item(NAME(m_side_control));
 	save_item(NAME(m_control));
-
-	machine().save().register_postload(save_prepost_delegate(FUNC(msx_slot_disk1_device::post_load), this));
 }
 
 
@@ -148,7 +146,7 @@ void msx_slot_disk1_device::device_reset()
 }
 
 
-void msx_slot_disk1_device::post_load()
+void msx_slot_disk1_device::device_post_load()
 {
 	uint8_t data = m_control;
 
@@ -207,25 +205,25 @@ void msx_slot_disk1_device::set_control(uint8_t data)
 }
 
 
-READ8_MEMBER(msx_slot_disk1_device::read)
+uint8_t msx_slot_disk1_device::read(offs_t offset)
 {
 	switch (offset)
 	{
 		case 0x7ff8:
 		case 0xbff8:
-			return m_fdc->read_status();
+			return m_fdc->status_r();
 
 		case 0x7ff9:
 		case 0xbff9:
-			return m_fdc->read_track();
+			return m_fdc->track_r();
 
 		case 0x7ffa:
 		case 0xbffa:
-			return m_fdc->read_sector();
+			return m_fdc->sector_r();
 
 		case 0x7ffb:
 		case 0xbffb:
-			return m_fdc->read_data();
+			return m_fdc->data_r();
 
 		case 0x7ffc:
 		case 0xbffc:
@@ -240,32 +238,32 @@ READ8_MEMBER(msx_slot_disk1_device::read)
 			return 0x3f | (m_fdc->intrq_r() ? 0 : 0x40) | (m_fdc->drq_r() ? 0 : 0x80);
 	}
 
-	return msx_slot_rom_device::read(space, offset);
+	return msx_slot_rom_device::read(offset);
 }
 
 
-WRITE8_MEMBER(msx_slot_disk1_device::write)
+void msx_slot_disk1_device::write(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
 		case 0x7ff8:
 		case 0xbff8:
-			m_fdc->write_cmd(data);
+			m_fdc->cmd_w(data);
 			break;
 
 		case 0x7ff9:
 		case 0xbff9:
-			m_fdc->write_track(data);
+			m_fdc->track_w(data);
 			break;
 
 		case 0x7ffa:
 		case 0xbffa:
-			m_fdc->write_sector(data);
+			m_fdc->sector_w(data);
 			break;
 
 		case 0x7ffb:
 		case 0xbffb:
-			m_fdc->write_data(data);
+			m_fdc->data_w(data);
 			break;
 
 		case 0x7ffc:
@@ -298,8 +296,6 @@ void msx_slot_disk2_device::device_start()
 	msx_slot_wd_disk_device::device_start();
 
 	save_item(NAME(m_control));
-
-	machine().save().register_postload(save_prepost_delegate(FUNC(msx_slot_disk2_device::post_load), this));
 }
 
 
@@ -309,7 +305,7 @@ void msx_slot_disk2_device::device_reset()
 }
 
 
-void msx_slot_disk2_device::post_load()
+void msx_slot_disk2_device::device_post_load()
 {
 	uint8_t data = m_control;
 
@@ -356,57 +352,57 @@ void msx_slot_disk2_device::set_control(uint8_t data)
 }
 
 
-READ8_MEMBER(msx_slot_disk2_device::read)
+uint8_t msx_slot_disk2_device::read(offs_t offset)
 {
 	switch (offset)
 	{
 		case 0x7fb8:
 		case 0xbfb8:
-			return m_fdc->read_status();
+			return m_fdc->status_r();
 
 		case 0x7fb9:
 		case 0xbfb9:
-			return m_fdc->read_track();
+			return m_fdc->track_r();
 
 		case 0x7fba:
 		case 0xbfba:
-			return m_fdc->read_sector();
+			return m_fdc->sector_r();
 
 		case 0x7fbb:
 		case 0xbfbb:
-			return m_fdc->read_data();
+			return m_fdc->data_r();
 
 		case 0x7fbc:
 		case 0xbfbc:
 			return 0x3f | (m_fdc->drq_r() ? 0 : 0x40) | (m_fdc->intrq_r() ? 0x80 : 0);
 	}
 
-	return msx_slot_rom_device::read(space, offset);
+	return msx_slot_rom_device::read(offset);
 }
 
 
-WRITE8_MEMBER(msx_slot_disk2_device::write)
+void msx_slot_disk2_device::write(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
 		case 0x7fb8:
 		case 0xbfb8:
-			m_fdc->write_cmd(data);
+			m_fdc->cmd_w(data);
 			break;
 
 		case 0x7fb9:
 		case 0xbfb9:
-			m_fdc->write_track(data);
+			m_fdc->track_w(data);
 			break;
 
 		case 0x7fba:
 		case 0xbfba:
-			m_fdc->write_sector(data);
+			m_fdc->sector_w(data);
 			break;
 
 		case 0x7fbb:
 		case 0xbfbb:
-			m_fdc->write_data(data);
+			m_fdc->data_w(data);
 			break;
 
 		case 0x7fbc:
@@ -431,20 +427,20 @@ msx_slot_disk3_device::msx_slot_disk3_device(const machine_config &mconfig, cons
 }
 
 
-WRITE8_MEMBER(msx_slot_disk3_device::write)
+void msx_slot_disk3_device::write(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
 		case 0x7ff8:   // CR0 : 0 - 0 - MEN1 - MEN0 - 0 - -FRST - 0 - DSA
-			m_fdc->dor_w(space, 2, data);
+			m_fdc->dor_w(data);
 			break;
 
 		case 0x7ff9:   // CR1 : 0 - 0 - C4E - C4 - SBME - SBM - TCE - FDCTC
-			m_fdc->cr1_w(space, 3, data);
+			m_fdc->cr1_w(data);
 			break;
 
 		case 0x7ffb:   // Data Register
-			m_fdc->fifo_w(space, 5, data);
+			m_fdc->fifo_w(data);
 			break;
 
 		default:
@@ -454,17 +450,17 @@ WRITE8_MEMBER(msx_slot_disk3_device::write)
 }
 
 
-READ8_MEMBER(msx_slot_disk3_device::read)
+uint8_t msx_slot_disk3_device::read(offs_t offset)
 {
 	switch (offset)
 	{
 		case 0x7ffa:   // Status Register
-			return m_fdc->msr_r(space, 4);
+			return m_fdc->msr_r();
 		case 0x7ffb:   // Data Register
-			return m_fdc->fifo_r(space, 5);
+			return m_fdc->fifo_r();
 	}
 
-	return msx_slot_rom_device::read(space, offset);
+	return msx_slot_rom_device::read(offset);
 }
 
 
@@ -477,7 +473,7 @@ msx_slot_disk4_device::msx_slot_disk4_device(const machine_config &mconfig, cons
 }
 
 
-WRITE8_MEMBER(msx_slot_disk4_device::write)
+void msx_slot_disk4_device::write(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
@@ -485,15 +481,15 @@ WRITE8_MEMBER(msx_slot_disk4_device::write)
 			break;
 
 		case 0x7ff2:   // CR0 : 0 - 0 - MEN1 - MEN0 - 0 - -FRST - 0 - DSA
-			m_fdc->dor_w(space, 2, data);
+			m_fdc->dor_w(data);
 			break;
 
 		case 0x7ff3:   // CR1 : 0 - 0 - C4E - C4 - SBME - SBM - TCE - FDCTC
-			m_fdc->cr1_w(space, 3, data);
+			m_fdc->cr1_w(data);
 			break;
 
 		case 0x7ff5:   // Data Register
-			m_fdc->fifo_w(space, 5, data);
+			m_fdc->fifo_w(data);
 			break;
 
 		default:
@@ -503,7 +499,7 @@ WRITE8_MEMBER(msx_slot_disk4_device::write)
 }
 
 
-READ8_MEMBER(msx_slot_disk4_device::read)
+uint8_t msx_slot_disk4_device::read(offs_t offset)
 {
 	switch (offset)
 	{
@@ -512,12 +508,12 @@ READ8_MEMBER(msx_slot_disk4_device::read)
 			break;
 
 		case 0x7ff4:   // Status Register
-			return m_fdc->msr_r(space, 4);
+			return m_fdc->msr_r();
 		case 0x7ff5:   // Data Register
-			return m_fdc->fifo_r(space, 5);
+			return m_fdc->fifo_r();
 	}
 
-	return msx_slot_rom_device::read(space, offset);
+	return msx_slot_rom_device::read(offset);
 }
 
 
@@ -536,12 +532,9 @@ void msx_slot_disk5_device::device_start()
 
 	save_item(NAME(m_control));
 
-	machine().save().register_postload(save_prepost_delegate(FUNC(msx_slot_disk5_device::post_load), this));
-
 	// Install IO read/write handlers
-	address_space &space = machine().device<cpu_device>("maincpu")->space(AS_IO);
-	space.install_write_handler(0xd0, 0xd4, write8_delegate(FUNC(msx_slot_disk5_device::io_write), this));
-	space.install_read_handler(0xd0, 0xd4, read8_delegate(FUNC(msx_slot_disk5_device::io_read), this));
+	io_space().install_write_handler(0xd0, 0xd4, write8sm_delegate(*this, FUNC(msx_slot_disk5_device::io_write)));
+	io_space().install_read_handler(0xd0, 0xd4, read8sm_delegate(*this, FUNC(msx_slot_disk5_device::io_read)));
 }
 
 
@@ -551,7 +544,7 @@ void msx_slot_disk5_device::device_reset()
 }
 
 
-void msx_slot_disk5_device::post_load()
+void msx_slot_disk5_device::device_post_load()
 {
 	set_control(m_control);
 }
@@ -594,21 +587,21 @@ void msx_slot_disk5_device::set_control(uint8_t control)
 }
 
 
-READ8_MEMBER(msx_slot_disk5_device::io_read)
+uint8_t msx_slot_disk5_device::io_read(offs_t offset)
 {
 	switch (offset)
 	{
 		case 0x00:
-			return m_fdc->read_status();
+			return m_fdc->status_r();
 
 		case 0x01:
-			return m_fdc->read_track();
+			return m_fdc->track_r();
 
 		case 0x02:
-			return m_fdc->read_sector();
+			return m_fdc->sector_r();
 
 		case 0x03:
-			return m_fdc->read_data();
+			return m_fdc->data_r();
 
 		case 0x04:
 			return 0x3f | (m_fdc->drq_r() ? 0 : 0x40) | (m_fdc->intrq_r() ? 0x80 : 0);
@@ -618,24 +611,24 @@ READ8_MEMBER(msx_slot_disk5_device::io_read)
 }
 
 
-WRITE8_MEMBER(msx_slot_disk5_device::io_write)
+void msx_slot_disk5_device::io_write(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
 		case 0x00:
-			m_fdc->write_cmd(data);
+			m_fdc->cmd_w(data);
 			break;
 
 		case 0x01:
-			m_fdc->write_track(data);
+			m_fdc->track_w(data);
 			break;
 
 		case 0x02:
-			m_fdc->write_sector(data);
+			m_fdc->sector_w(data);
 			break;
 
 		case 0x03:
-			m_fdc->write_data(data);
+			m_fdc->data_w(data);
 			break;
 
 		case 0x04:
@@ -662,8 +655,6 @@ void msx_slot_disk6_device::device_start()
 	save_item(NAME(m_side_motor));
 	save_item(NAME(m_drive_select0));
 	save_item(NAME(m_drive_select1));
-
-	machine().save().register_postload(save_prepost_delegate(FUNC(msx_slot_disk6_device::post_load), this));
 }
 
 
@@ -673,7 +664,7 @@ void msx_slot_disk6_device::device_reset()
 }
 
 
-void msx_slot_disk6_device::post_load()
+void msx_slot_disk6_device::device_post_load()
 {
 	select_drive();
 }
@@ -715,25 +706,25 @@ void msx_slot_disk6_device::set_side_motor()
 }
 
 
-READ8_MEMBER(msx_slot_disk6_device::read)
+uint8_t msx_slot_disk6_device::read(offs_t offset)
 {
 	switch (offset)
 	{
 		case 0x7ff0:   // status?
 		case 0x7ff8:
-			return m_fdc->read_status();
+			return m_fdc->status_r();
 
 		case 0x7ff1:   // track?
 		case 0x7ff9:
-			return m_fdc->read_track();
+			return m_fdc->track_r();
 
 		case 0x7ff2:   // sector?
 		case 0x7ffa:
-			return m_fdc->read_sector();
+			return m_fdc->sector_r();
 
 		case 0x7ff3:   // data?
 		case 0x7ffb:
-			return m_fdc->read_data();
+			return m_fdc->data_r();
 
 		case 0x7ff4:
 		case 0x7ffc:
@@ -757,32 +748,32 @@ READ8_MEMBER(msx_slot_disk6_device::read)
 			return 0x3f | (m_fdc->intrq_r() ? 0 : 0x40) | (m_fdc->drq_r() ? 0 : 0x80);
 	}
 
-	return msx_slot_rom_device::read(space, offset);
+	return msx_slot_rom_device::read(offset);
 }
 
 
-WRITE8_MEMBER(msx_slot_disk6_device::write)
+void msx_slot_disk6_device::write(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
 		case 0x7ff0:   // cmd?
 		case 0x7ff8:
-			m_fdc->write_cmd(data);
+			m_fdc->cmd_w(data);
 			break;
 
 		case 0x7ff1:   // track?
 		case 0x7ff9:
-			m_fdc->write_track(data);
+			m_fdc->track_w(data);
 			break;
 
 		case 0x7ff2:   // sector?
 		case 0x7ffa:
-			m_fdc->write_sector(data);
+			m_fdc->sector_w(data);
 			break;
 
 		case 0x7ff3:   // data?
 		case 0x7ffb:
-			m_fdc->write_data(data);
+			m_fdc->data_w(data);
 			break;
 
 		// Side and motort control

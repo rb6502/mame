@@ -289,6 +289,11 @@ public:
 	{
 	}
 
+	void rollext(machine_config &config);
+
+	void init_rollext();
+
+private:
 	required_device<tms32082_mp_device> m_maincpu;
 	required_shared_ptr<uint32_t> m_palette_ram;
 	required_shared_ptr<uint32_t> m_texture_mask;
@@ -305,13 +310,11 @@ public:
 	std::unique_ptr<rollext_renderer> m_renderer;
 
 	INTERRUPT_GEN_MEMBER(vblank_interrupt);
-	void init_rollext();
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 	virtual void video_start() override;
 	void preprocess_texture_data();
 	uint32_t screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
-	void rollext(machine_config &config);
 	void memmap(address_map &map);
 };
 
@@ -540,25 +543,26 @@ void rollext_state::machine_start()
 }
 
 
-MACHINE_CONFIG_START(rollext_state::rollext)
-	MCFG_DEVICE_ADD("maincpu", TMS32082_MP, 60000000)
-	MCFG_DEVICE_PROGRAM_MAP(memmap)
-	//MCFG_DEVICE_VBLANK_INT_DRIVER("screen", rollext_state, vblank_interrupt)
-	MCFG_DEVICE_PERIODIC_INT_DRIVER(rollext_state, irq1_line_assert, 60)
-	//MCFG_DEVICE_PERIODIC_INT_DRIVER(rollext_state, irq3_line_assert, 500)
+void rollext_state::rollext(machine_config &config)
+{
+	TMS32082_MP(config, m_maincpu, 60000000);
+	m_maincpu->set_addrmap(AS_PROGRAM, &rollext_state::memmap);
+	//m_maincpu->set_vblank_int("screen", FUNC(rollext_state::vblank_interrupt));
+	m_maincpu->set_periodic_int(FUNC(rollext_state::irq1_line_assert), attotime::from_hz(60));
+	//m_maincpu->set_periodic_int(FUNC(rollext_state::irq3_line_assert), attotime::from_hz(500));
 
-	MCFG_DEVICE_ADD("pp0", TMS32082_PP, 60000000)
-	MCFG_DEVICE_PROGRAM_MAP(memmap);
+	tms32082_pp_device &pp0(TMS32082_PP(config, "pp0", 60000000));
+	pp0.set_addrmap(AS_PROGRAM, &rollext_state::memmap);
 
-	MCFG_QUANTUM_TIME(attotime::from_hz(100))
+	config.set_maximum_quantum(attotime::from_hz(100));
 
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(0))
-	MCFG_SCREEN_SIZE(512, 384)
-	MCFG_SCREEN_VISIBLE_AREA(0, 511, 0, 383)
-	MCFG_SCREEN_UPDATE_DRIVER(rollext_state, screen_update)
-MACHINE_CONFIG_END
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_refresh_hz(60);
+	m_screen->set_vblank_time(ATTOSECONDS_IN_USEC(0));
+	m_screen->set_size(512, 384);
+	m_screen->set_visarea(0, 511, 0, 383);
+	m_screen->set_screen_update(FUNC(rollext_state::screen_update));
+}
 
 
 INTERRUPT_GEN_MEMBER(rollext_state::vblank_interrupt)
@@ -568,7 +572,7 @@ INTERRUPT_GEN_MEMBER(rollext_state::vblank_interrupt)
 
 void rollext_state::init_rollext()
 {
-	m_maincpu->set_command_callback(write32_delegate(FUNC(rollext_state::cmd_callback),this));
+	m_maincpu->set_command_callback(*this, FUNC(rollext_state::cmd_callback));
 }
 
 

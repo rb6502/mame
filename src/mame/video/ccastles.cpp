@@ -90,19 +90,19 @@ WRITE8_MEMBER(ccastles_state::ccastles_paletteram_w)
 	bit0 = (~r >> 0) & 0x01;
 	bit1 = (~r >> 1) & 0x01;
 	bit2 = (~r >> 2) & 0x01;
-	r = combine_3_weights(m_rweights, bit0, bit1, bit2);
+	r = combine_weights(m_rweights, bit0, bit1, bit2);
 
 	/* green component (inverted) */
 	bit0 = (~g >> 0) & 0x01;
 	bit1 = (~g >> 1) & 0x01;
 	bit2 = (~g >> 2) & 0x01;
-	g = combine_3_weights(m_gweights, bit0, bit1, bit2);
+	g = combine_weights(m_gweights, bit0, bit1, bit2);
 
 	/* blue component (inverted) */
 	bit0 = (~b >> 0) & 0x01;
 	bit1 = (~b >> 1) & 0x01;
 	bit2 = (~b >> 2) & 0x01;
-	b = combine_3_weights(m_bweights, bit0, bit1, bit2);
+	b = combine_weights(m_bweights, bit0, bit1, bit2);
 
 	m_palette->set_pen_color(offset & 0x1f, rgb_t(r, g, b));
 }
@@ -272,14 +272,14 @@ uint32_t ccastles_state::screen_update_ccastles(screen_device &screen, bitmap_in
 	}
 
 	/* draw the bitmap to the screen, looping over Y */
-	for (y = cliprect.min_y; y <= cliprect.max_y; y++)
+	for (y = cliprect.top(); y <= cliprect.bottom(); y++)
 	{
 		uint16_t *dst = &bitmap.pix16(y);
 
 		/* if we're in the VBLANK region, just fill with black */
 		if (m_syncprom[y] & 1)
 		{
-			for (x = cliprect.min_x; x <= cliprect.max_x; x++)
+			for (x = cliprect.left(); x <= cliprect.right(); x++)
 				dst[x] = black;
 		}
 
@@ -296,7 +296,7 @@ uint32_t ccastles_state::screen_update_ccastles(screen_device &screen, bitmap_in
 			src = &m_videoram[effy * 128];
 
 			/* loop over X */
-			for (x = cliprect.min_x; x <= cliprect.max_x; x++)
+			for (x = cliprect.left(); x <= cliprect.right(); x++)
 			{
 				/* if we're in the HBLANK region, just store black */
 				if (x >= 256)

@@ -55,16 +55,21 @@ class mjsenpu_state : public driver_device
 {
 public:
 	mjsenpu_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
-			m_maincpu(*this, "maincpu"),
-			m_oki(*this, "oki"),
-			m_hopper(*this, "hopper"),
-			m_mainram(*this, "mainram"),
-	//      m_vram(*this, "vram"),
-			m_palette(*this, "palette")
+		: driver_device(mconfig, type, tag)
+		, m_maincpu(*this, "maincpu")
+		, m_oki(*this, "oki")
+		, m_hopper(*this, "hopper")
+		, m_mainram(*this, "mainram")
+	//  , m_vram(*this, "vram")
+		, m_palette(*this, "palette")
 	{
 	}
 
+	void mjsenpu(machine_config &config);
+
+	void init_mjsenpu();
+
+private:
 	/* devices */
 	required_device<e132xt_device> m_maincpu;
 	required_device<okim6295_device> m_oki;
@@ -94,14 +99,12 @@ public:
 	DECLARE_READ32_MEMBER(vram_r);
 	DECLARE_WRITE32_MEMBER(vram_w);
 
-	void init_mjsenpu();
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 	virtual void video_start() override;
 	uint32_t screen_update_mjsenpu(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 
 	required_device<palette_device> m_palette;
-	void mjsenpu(machine_config &config);
 	void mjsenpu_32bit_map(address_map &map);
 	void mjsenpu_io(address_map &map);
 };
@@ -460,35 +463,34 @@ following clocks are on the PCB
 
 */
 
-MACHINE_CONFIG_START(mjsenpu_state::mjsenpu)
-
+void mjsenpu_state::mjsenpu(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", E132XT, 27000000*2) /* ?? Mhz */
-	MCFG_DEVICE_PROGRAM_MAP(mjsenpu_32bit_map)
-	MCFG_DEVICE_IO_MAP(mjsenpu_io)
-	MCFG_DEVICE_VBLANK_INT_DRIVER("screen", mjsenpu_state,  irq0_line_hold)
+	E132XT(config, m_maincpu, 27000000*2); /* ?? Mhz */
+	m_maincpu->set_addrmap(AS_PROGRAM, &mjsenpu_state::mjsenpu_32bit_map);
+	m_maincpu->set_addrmap(AS_IO, &mjsenpu_state::mjsenpu_io);
+	m_maincpu->set_vblank_int("screen", FUNC(mjsenpu_state::irq0_line_hold));
 
-	MCFG_NVRAM_ADD_1FILL("nvram")
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_1);
 
 	// more likely coins out?
-	MCFG_TICKET_DISPENSER_ADD("hopper", attotime::from_msec(50), TICKET_MOTOR_ACTIVE_LOW, TICKET_STATUS_ACTIVE_HIGH)
+	TICKET_DISPENSER(config, m_hopper, attotime::from_msec(50), TICKET_MOTOR_ACTIVE_LOW, TICKET_STATUS_ACTIVE_HIGH);
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(0))
-	MCFG_SCREEN_SIZE(512, 256)
-	MCFG_SCREEN_VISIBLE_AREA(0, 512-1, 0, 256-16-1)
-	MCFG_SCREEN_UPDATE_DRIVER(mjsenpu_state, screen_update_mjsenpu)
-	MCFG_SCREEN_PALETTE("palette")
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(0));
+	screen.set_size(512, 256);
+	screen.set_visarea(0, 512-1, 0, 256-16-1);
+	screen.set_screen_update(FUNC(mjsenpu_state::screen_update_mjsenpu));
+	screen.set_palette(m_palette);
 
-	MCFG_PALETTE_ADD("palette", 0x100)
+	PALETTE(config, m_palette).set_entries(0x100);
 
 	SPEAKER(config, "mono").front_center();
 
-	MCFG_DEVICE_ADD("oki", OKIM6295, 1000000, okim6295_device::PIN7_HIGH) /* 1 Mhz? */
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 1.00)
-MACHINE_CONFIG_END
+	OKIM6295(config, m_oki, 1000000, okim6295_device::PIN7_HIGH).add_route(ALL_OUTPUTS, "mono", 1.00); /* 1 Mhz? */
+}
 
 
 ROM_START( mjsenpu )
@@ -536,7 +538,7 @@ void mjsenpu_state::init_mjsenpu()
    (loops for 744256 instructions)
 */
 	// not especially effective, might be wrong.
-	m_maincpu->space(AS_PROGRAM).install_read_handler(0x23468, 0x2346b, read32_delegate(FUNC(mjsenpu_state::mjsenpu_speedup_r), this));
+	m_maincpu->space(AS_PROGRAM).install_read_handler(0x23468, 0x2346b, read32_delegate(*this, FUNC(mjsenpu_state::mjsenpu_speedup_r)));
 }
 
 

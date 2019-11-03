@@ -79,8 +79,8 @@ Dumped by Uki
 class galpani3_state : public driver_device
 {
 public:
-	galpani3_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	galpani3_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_maincpu(*this,"maincpu"),
 		m_grap2(*this,"grap2_%u", 0),
 		m_palette(*this, "palette"),
@@ -90,9 +90,11 @@ public:
 		m_priority_buffer(*this, "priority_buffer"),
 		m_sprregs(*this, "sprregs"),
 		m_sprite_bitmap(1024, 1024)
-
 	{ }
 
+	void galpani3(machine_config &config);
+
+private:
 	required_device<cpu_device> m_maincpu;
 	required_device_array<kaneko_grap2_device, 3> m_grap2;
 	required_device<palette_device> m_palette;
@@ -114,12 +116,10 @@ public:
 	DECLARE_WRITE16_MEMBER(galpani3_priority_buffer_scrollx_w);
 	DECLARE_WRITE16_MEMBER(galpani3_priority_buffer_scrolly_w);
 
-
 	virtual void video_start() override;
 
 	uint32_t screen_update_galpani3(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 	TIMER_DEVICE_CALLBACK_MEMBER(galpani3_vblank);
-	void galpani3(machine_config &config);
 	void galpani3_map(address_map &map);
 };
 
@@ -157,8 +157,8 @@ void galpani3_state::video_start()
 
 	save_item(NAME(m_priority_buffer_scrollx));
 	save_item(NAME(m_priority_buffer_scrolly));
-	save_pointer(NAME(m_spriteram32.get()), 0x4000/4);
-	save_pointer(NAME(m_spc_regs.get()), 0x40/4);
+	save_pointer(NAME(m_spriteram32), 0x4000/4);
+	save_pointer(NAME(m_spc_regs), 0x40/4);
 }
 
 #define SPRITE_DRAW_PIXEL(_pri)                                    \
@@ -171,7 +171,7 @@ void galpani3_state::video_start()
 // TODO : m_framebuffer_bright1 is alpha-blended?
 #define FB_DRAW_PIXEL(_chip, _pixel)                                                              \
 	int alpha = 0xff;                                                                             \
-	uint32_t pal = m_grap2[_chip]->pen_r(_pixel);                                                 \
+	const pen_t &pal = m_grap2[_chip]->pen(_pixel);                                               \
 	if (m_grap2[_chip]->m_framebuffer_palette[_pixel] & 0x8000)                                   \
 	{                                                                                             \
 		alpha = (m_grap2[_chip]->m_framebuffer_bright2 & 0xff);                                   \
@@ -193,8 +193,6 @@ uint32_t galpani3_state::screen_update_galpani3(screen_device &screen, bitmap_rg
 	const pen_t *paldata = m_palette->pens();
 
 	bitmap.fill(0, cliprect);
-
-	m_sprite_bitmap.fill(0x0000, cliprect);
 
 	m_spritegen->skns_draw_sprites(m_sprite_bitmap, cliprect, m_spriteram32.get(), 0x4000, m_spc_regs.get() );
 
@@ -252,11 +250,33 @@ uint32_t galpani3_state::screen_update_galpani3(screen_device &screen, bitmap_rg
 				else if (pridat==0xcf) // the girl
 				{
 					SPRITE_DRAW_PIXEL(0x0000);
-					FB_DRAW_PIXEL(0, 0x100);
+					if (m_grap2[0]->m_framebuffer_enable)
+					{
+						FB_DRAW_PIXEL(0, 0x100);
+					}
 					SPRITE_DRAW_PIXEL(0x4000);
 					if (m_grap2[1]->m_framebuffer_enable)
 					{
 						FB_DRAW_PIXEL(1, 0x100);
+					}
+					SPRITE_DRAW_PIXEL(0x8000);
+					if (dat3 && m_grap2[2]->m_framebuffer_enable)
+					{
+						FB_DRAW_PIXEL(2, dat3);
+					}
+					SPRITE_DRAW_PIXEL(0xc000);
+				}
+				else if (pridat==0x30) // during the 'gals boxes' on the intro
+				{
+					SPRITE_DRAW_PIXEL(0x0000);
+					if (m_grap2[1]->m_framebuffer_enable) // TODO : Opaqued and Swapped order?
+					{
+						FB_DRAW_PIXEL(1, dat2);
+					}
+					SPRITE_DRAW_PIXEL(0x4000);
+					if (dat1 && m_grap2[0]->m_framebuffer_enable)
+					{
+						FB_DRAW_PIXEL(0, dat1);
 					}
 					SPRITE_DRAW_PIXEL(0x8000);
 					if (dat3 && m_grap2[2]->m_framebuffer_enable)
@@ -430,46 +450,43 @@ void galpani3_state::galpani3_map(address_map &map)
 }
 
 
-MACHINE_CONFIG_START(galpani3_state::galpani3)
-	MCFG_DEVICE_ADD("maincpu", M68000, XTAL(28'636'363)/2) // Confirmed from PCB
-	MCFG_DEVICE_PROGRAM_MAP(galpani3_map)
-	MCFG_TIMER_DRIVER_ADD_SCANLINE("scantimer", galpani3_state, galpani3_vblank, "screen", 0, 1)
+void galpani3_state::galpani3(machine_config &config)
+{
+	M68000(config, m_maincpu, XTAL(28'636'363)/2); // Confirmed from PCB
+	m_maincpu->set_addrmap(AS_PROGRAM, &galpani3_state::galpani3_map);
+	TIMER(config, "scantimer").configure_scanline(FUNC(galpani3_state::galpani3_vblank), "screen", 0, 1);
 
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(0))
-	MCFG_SCREEN_SIZE(64*8, 64*8)
-	MCFG_SCREEN_VISIBLE_AREA(0*8, 40*8-1, 0*8, 30*8-1)
-	//MCFG_SCREEN_VISIBLE_AREA(0*8, 64*8-1, 0*8, 64*8-1)
-	MCFG_SCREEN_UPDATE_DRIVER(galpani3_state, screen_update_galpani3)
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(0));
+	screen.set_size(64*8, 64*8);
+	screen.set_visarea(0*8, 40*8-1, 0*8, 30*8-1);
+	//screen.set_visarea(0*8, 64*8-1, 0*8, 64*8-1);
+	screen.set_screen_update(FUNC(galpani3_state::screen_update_galpani3));
 
-	MCFG_DEVICE_ADD("eeprom", EEPROM_SERIAL_93C46_16BIT)
+	EEPROM_93C46_16BIT(config, "eeprom");
 
-	MCFG_WATCHDOG_ADD("watchdog")
+	WATCHDOG_TIMER(config, "watchdog");
 
-	MCFG_DEVICE_ADD("toybox", KANEKO_TOYBOX, "eeprom", "DSW1", "mcuram", "mcudata")
+	KANEKO_TOYBOX(config, "toybox", "eeprom", "DSW1", "mcuram", "mcudata");
 
-	MCFG_PALETTE_ADD("palette", 0x4000)
-	MCFG_PALETTE_FORMAT(xGGGGGRRRRRBBBBB)
+	PALETTE(config, m_palette).set_format(palette_device::xGRB_555, 0x4000);
 
-	MCFG_DEVICE_ADD("spritegen", SKNS_SPRITE, 0)
+	SKNS_SPRITE(config, m_spritegen, 0);
 
-	MCFG_DEVICE_ADD("grap2_0", KANEKO_GRAP2, 0)
-	MCFG_DEVICE_ROM("rlebg")
+	KANEKO_GRAP2(config, m_grap2[0], 0).set_device_rom_tag("rlebg");
 
-	MCFG_DEVICE_ADD("grap2_1", KANEKO_GRAP2, 0)
-	MCFG_DEVICE_ROM("rlebg")
+	KANEKO_GRAP2(config, m_grap2[1], 0).set_device_rom_tag("rlebg");
 
-	MCFG_DEVICE_ADD("grap2_2", KANEKO_GRAP2, 0)
-	MCFG_DEVICE_ROM("rlebg")
+	KANEKO_GRAP2(config, m_grap2[2], 0).set_device_rom_tag("rlebg");
 
 	/* sound hardware */
 	SPEAKER(config, "mono").front_center();
 
-	MCFG_DEVICE_ADD("ymz", YMZ280B, XTAL(33'333'000) / 2)  // Confirmed from PCB
-	MCFG_SOUND_ROUTE(0, "mono", 1.0)
-	MCFG_SOUND_ROUTE(1, "mono", 1.0)
-MACHINE_CONFIG_END
+	ymz280b_device &ymz(YMZ280B(config, "ymz", XTAL(33'333'000) / 2));  // Confirmed from PCB
+	ymz.add_route(0, "mono", 1.0);
+	ymz.add_route(1, "mono", 1.0);
+}
 
 
 ROM_START( galpani3 ) /* All game text in English */

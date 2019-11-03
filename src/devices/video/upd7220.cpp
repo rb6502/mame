@@ -151,7 +151,8 @@ DEFINE_DEVICE_TYPE(UPD7220, upd7220_device, "upd7220", "NEC uPD7220")
 // default address map
 void upd7220_device::upd7220_vram(address_map &map)
 {
-	map(0x00000, 0x3ffff).ram();
+	if (!has_configured_map(0))
+		map(0x00000, 0x3ffff).ram();
 }
 
 
@@ -408,15 +409,14 @@ inline void upd7220_device::recompute_parameters()
 
 	attoseconds_t refresh = HZ_TO_ATTOSECONDS(clock() * 8) * horiz_pix_total * vert_pix_total;
 
-	rectangle visarea;
-
-	visarea.min_x = 0; //(m_hs + m_hbp) * 8;
-	visarea.min_y = m_vbp; //m_vs + m_vbp;
-	visarea.max_x = m_aw * horiz_mult - 1;//horiz_pix_total - (m_hfp * 8) - 1;
-	visarea.max_y = m_al * vert_mult + m_vbp - 1;//vert_pix_total - m_vfp - 1;
+	rectangle visarea(
+			0, //(m_hs + m_hbp) * 8;
+			m_aw * horiz_mult - 1,//horiz_pix_total - (m_hfp * 8) - 1;
+			m_vbp, //m_vs + m_vbp;
+			m_al * vert_mult + m_vbp - 1);//vert_pix_total - m_vfp - 1;
 
 	LOG("uPD7220 Screen: %u x %u @ %f Hz\n", horiz_pix_total, vert_pix_total, 1 / ATTOSECONDS_TO_DOUBLE(refresh));
-	LOG("Visible Area: (%u, %u) - (%u, %u)\n", visarea.min_x, visarea.min_y, visarea.max_x, visarea.max_y);
+	LOG("Visible Area: (%u, %u) - (%u, %u)\n", visarea.left(), visarea.top(), visarea.right(), visarea.bottom());
 	LOG("%d %d %d %d %d\n",m_hs,m_hbp,m_aw,m_hfp,m_pitch);
 	LOG("%d %d %d %d\n",m_vs,m_vbp,m_al,m_vfp);
 
@@ -615,6 +615,8 @@ upd7220_device::upd7220_device(const machine_config &mconfig, const char *tag, d
 	device_t(mconfig, UPD7220, tag, owner, clock),
 	device_memory_interface(mconfig, *this),
 	device_video_interface(mconfig, *this),
+	m_display_cb(*this),
+	m_draw_text_cb(*this),
 	m_write_drq(*this),
 	m_write_hsync(*this),
 	m_write_vsync(*this),
@@ -650,7 +652,7 @@ upd7220_device::upd7220_device(const machine_config &mconfig, const char *tag, d
 	m_disp(0),
 	m_gchr(0),
 	m_bitmap_mod(0),
-	m_space_config("videoram", ENDIANNESS_LITTLE, 16, 18, 0, address_map_constructor(), address_map_constructor(FUNC(upd7220_device::upd7220_vram), this))
+	m_space_config("videoram", ENDIANNESS_LITTLE, 16, 18, 0, address_map_constructor(FUNC(upd7220_device::upd7220_vram), this))
 {
 	for (int i = 0; i < 16; i++)
 	{
@@ -676,8 +678,8 @@ upd7220_device::upd7220_device(const machine_config &mconfig, const char *tag, d
 void upd7220_device::device_start()
 {
 	// resolve callbacks
-	m_display_cb.bind_relative_to(*owner());
-	m_draw_text_cb.bind_relative_to(*owner());
+	m_display_cb.resolve();
+	m_draw_text_cb.resolve();
 
 	m_write_drq.resolve_safe();
 	m_write_hsync.resolve_safe();
@@ -716,6 +718,23 @@ void upd7220_device::device_start()
 	save_item(NAME(m_gchr));
 	save_item(NAME(m_mask));
 	save_item(NAME(m_pitch));
+	save_item(NAME(m_ra_addr));
+	save_item(NAME(m_cr));
+	save_item(NAME(m_pr));
+	save_item(NAME(m_param_ptr));
+	save_item(NAME(m_fifo));
+	save_item(NAME(m_fifo_flag));
+	save_item(NAME(m_fifo_ptr));
+	save_item(NAME(m_fifo_dir));
+	save_item(NAME(m_bitmap_mod));
+	save_item(NAME(m_figs.m_dir));
+	save_item(NAME(m_figs.m_figure_type));
+	save_item(NAME(m_figs.m_dc));
+	save_item(NAME(m_figs.m_gd));
+	save_item(NAME(m_figs.m_d));
+	save_item(NAME(m_figs.m_d1));
+	save_item(NAME(m_figs.m_d2));
+	save_item(NAME(m_figs.m_dm));
 }
 
 
@@ -1448,7 +1467,7 @@ void upd7220_device::continue_command()
 //  read -
 //-------------------------------------------------
 
-READ8_MEMBER( upd7220_device::read )
+uint8_t upd7220_device::read(offs_t offset)
 {
 	uint8_t data;
 
@@ -1479,7 +1498,7 @@ READ8_MEMBER( upd7220_device::read )
 //  write -
 //-------------------------------------------------
 
-WRITE8_MEMBER( upd7220_device::write )
+void upd7220_device::write(offs_t offset, uint8_t data)
 {
 	if (offset & 1)
 	{
@@ -1502,7 +1521,7 @@ WRITE8_MEMBER( upd7220_device::write )
 //  dack_r -
 //-------------------------------------------------
 
-READ8_MEMBER( upd7220_device::dack_r )
+uint8_t upd7220_device::dack_r()
 {
 	return 0;
 }
@@ -1512,7 +1531,7 @@ READ8_MEMBER( upd7220_device::dack_r )
 //  dack_w -
 //-------------------------------------------------
 
-WRITE8_MEMBER( upd7220_device::dack_w )
+void upd7220_device::dack_w(uint8_t data)
 {
 }
 

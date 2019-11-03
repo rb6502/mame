@@ -12,6 +12,7 @@
 
 #include "emupal.h"
 #include "screen.h"
+#include "tilemap.h"
 
 class sbasketb_state : public driver_device
 {
@@ -34,6 +35,12 @@ public:
 		m_palette(*this, "palette")
 	{ }
 
+	void sbasketb(machine_config &config);
+	void sbasketbu(machine_config &config);
+
+	void init_sbasketb();
+
+private:
 	/* memory pointers */
 	required_shared_ptr<uint8_t> m_colorram;
 	required_shared_ptr<uint8_t> m_videoram;
@@ -65,19 +72,17 @@ public:
 	DECLARE_WRITE8_MEMBER(sbasketb_colorram_w);
 	DECLARE_WRITE_LINE_MEMBER(flipscreen_w);
 	DECLARE_WRITE_LINE_MEMBER(spriteram_select_w);
-	void init_sbasketb();
 
 	uint8_t m_SN76496_latch;
 	DECLARE_WRITE8_MEMBER( konami_SN76496_latch_w ) { m_SN76496_latch = data; };
 	DECLARE_WRITE8_MEMBER( konami_SN76496_w ) { m_sn->write(m_SN76496_latch); };
 	TILE_GET_INFO_MEMBER(get_bg_tile_info);
 	virtual void video_start() override;
-	DECLARE_PALETTE_INIT(sbasketb);
+	void sbasketb_palette(palette_device &palette) const;
 	uint32_t screen_update_sbasketb(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	DECLARE_WRITE_LINE_MEMBER(vblank_irq);
 	void draw_sprites( bitmap_ind16 &bitmap, const rectangle &cliprect );
-	void sbasketb(machine_config &config);
-	void sbasketbu(machine_config &config);
+
 	void sbasketb_map(address_map &map);
 	void sbasketb_sound_map(address_map &map);
 };

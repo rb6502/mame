@@ -5,7 +5,7 @@
 2017-10-28 Skeleton
 
 Televideo TS-3000. CPU is 8088. Other chips are: 8259, 8253, 8237, 8255, NS8250, uPD765AC, MM58167AN.
-Crystals are: 18.432, 16.000, 24.000, 14.31818, 4.7727266. There's a barrel-type backup battery, and a bank of 8 dispswitches.
+Crystals are: 18.432, 16.000, 24.000, 14.31818, 4.7727266. There's a barrel-type backup battery, and a bank of 8 dipswitches.
 There are 25-pin serial and parallel ports, and a FDC connector. There's an undumped prom labelled "U20 V1.0" at position U20.
 
 ************************************************************************************************************************************/
@@ -23,11 +23,10 @@ public:
 
 	void ts3000(machine_config &config);
 
-protected:
+private:
 	void io_map(address_map &map);
 	void mem_map(address_map &map);
 
-private:
 //  required_device<cpu_device> m_maincpu;
 };
 
@@ -44,11 +43,12 @@ void ts3000_state::io_map(address_map &map)
 static INPUT_PORTS_START( ts3000 )
 INPUT_PORTS_END
 
-MACHINE_CONFIG_START(ts3000_state::ts3000)
-	MCFG_DEVICE_ADD("maincpu", I8088, XTAL(14'318'181)/3)  // no idea of clock
-	MCFG_DEVICE_PROGRAM_MAP(mem_map)
-	MCFG_DEVICE_IO_MAP(io_map)
-MACHINE_CONFIG_END
+void ts3000_state::ts3000(machine_config &config)
+{
+	i8088_cpu_device &maincpu(I8088(config, "maincpu", XTAL(14'318'181)/3));  // no idea of clock
+	maincpu.set_addrmap(AS_PROGRAM, &ts3000_state::mem_map);
+	maincpu.set_addrmap(AS_IO, &ts3000_state::io_map);
+}
 
 ROM_START( ts3000 )
 	ROM_REGION( 0x4000, "roms", 0 )

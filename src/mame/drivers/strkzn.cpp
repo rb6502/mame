@@ -23,11 +23,13 @@ public:
 	{ }
 
 	void strkzn(machine_config &config);
+
+private:
 	void light_io(address_map &map);
 	void light_mem(address_map &map);
 	void main_io(address_map &map);
 	void main_mem(address_map &map);
-private:
+
 	required_device<cpu_device> m_maincpu;
 	required_device<cpu_device> m_lightcpu;
 };
@@ -54,15 +56,16 @@ void strkzn_state::light_io(address_map &map)
 	map(0x0007, 0x0007).nopr();
 }
 
-MACHINE_CONFIG_START(strkzn_state::strkzn)
-	MCFG_DEVICE_ADD("maincpu", Z80, 4000000)
-	MCFG_DEVICE_PROGRAM_MAP(main_mem)
-	MCFG_DEVICE_IO_MAP(main_io)
+void strkzn_state::strkzn(machine_config &config)
+{
+	Z80(config, m_maincpu, 4000000);
+	m_maincpu->set_addrmap(AS_PROGRAM, &strkzn_state::main_mem);
+	m_maincpu->set_addrmap(AS_IO, &strkzn_state::main_io);
 
-	MCFG_DEVICE_ADD("lightcpu", I80188, 10000000)
-	MCFG_DEVICE_PROGRAM_MAP(light_mem)
-	MCFG_DEVICE_IO_MAP(light_io)
-MACHINE_CONFIG_END
+	I80188(config, m_lightcpu, 10000000);
+	m_lightcpu->set_addrmap(AS_PROGRAM, &strkzn_state::light_mem);
+	m_lightcpu->set_addrmap(AS_IO, &strkzn_state::light_io);
+}
 
 INPUT_PORTS_START( strkzn )
 INPUT_PORTS_END

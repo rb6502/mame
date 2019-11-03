@@ -43,7 +43,7 @@ enum line_state
 enum
 {
 	// input lines
-	MAX_INPUT_LINES = 32+3,
+	MAX_INPUT_LINES = 64+3,
 	INPUT_LINE_IRQ0 = 0,
 	INPUT_LINE_IRQ1 = 1,
 	INPUT_LINE_IRQ2 = 2,
@@ -73,32 +73,6 @@ enum
 // interrupt generator callback called as a VBLANK or periodic interrupt
 #define INTERRUPT_GEN_MEMBER(func)      void func(device_t &device)
 
-
-
-//**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_DEVICE_DISABLE() \
-	dynamic_cast<device_execute_interface &>(*device).set_disable();
-#define MCFG_DEVICE_VBLANK_INT_DRIVER(_tag, _class, _func) \
-	dynamic_cast<device_execute_interface &>(*device).set_vblank_int(device_interrupt_delegate(&_class::_func, #_class "::" #_func, DEVICE_SELF, (_class *)nullptr), _tag);
-#define MCFG_DEVICE_VBLANK_INT_DEVICE(_tag, _devtag, _class, _func) \
-	dynamic_cast<device_execute_interface &>(*device).set_vblank_int(device_interrupt_delegate(&_class::_func, #_class "::" #_func, _devtag, (_class *)nullptr), _tag);
-#define MCFG_DEVICE_VBLANK_INT_REMOVE()  \
-	dynamic_cast<device_execute_interface &>(*device).set_vblank_int(device_interrupt_delegate(), nullptr);
-#define MCFG_DEVICE_PERIODIC_INT_DRIVER(_class, _func, _rate) \
-	dynamic_cast<device_execute_interface &>(*device).set_periodic_int(device_interrupt_delegate(&_class::_func, #_class "::" #_func, DEVICE_SELF, (_class *)nullptr), attotime::from_hz(_rate));
-#define MCFG_DEVICE_PERIODIC_INT_DEVICE(_devtag, _class, _func, _rate) \
-	dynamic_cast<device_execute_interface &>(*device).set_periodic_int(device_interrupt_delegate(&_class::_func, #_class "::" #_func, _devtag, (_class *)nullptr), attotime::from_hz(_rate));
-#define MCFG_DEVICE_PERIODIC_INT_REMOVE()  \
-	dynamic_cast<device_execute_interface &>(*device).set_periodic_int(device_interrupt_delegate(), attotime());
-#define MCFG_DEVICE_IRQ_ACKNOWLEDGE_DRIVER(_class, _func) \
-	dynamic_cast<device_execute_interface &>(*device).set_irq_acknowledge_callback(device_irq_acknowledge_delegate(&_class::_func, #_class "::" #_func, DEVICE_SELF, (_class *)nullptr));
-#define MCFG_DEVICE_IRQ_ACKNOWLEDGE_DEVICE(_devtag, _class, _func) \
-	dynamic_cast<device_execute_interface &>(*device).set_irq_acknowledge_callback(device_irq_acknowledge_delegate(&_class::_func, #_class "::" #_func, _devtag, (_class *)nullptr));
-#define MCFG_DEVICE_IRQ_ACKNOWLEDGE_REMOVE()  \
-	dynamic_cast<device_execute_interface &>(*device).set_irq_acknowledge_callback(device_irq_acknowledge_delegate());
 
 
 //**************************************************************************
@@ -140,17 +114,42 @@ public:
 
 	// inline configuration helpers
 	void set_disable() { m_disabled = true; }
-	template <typename Object> void set_vblank_int(Object &&cb, const char *tag, int rate = 0)
+
+	template <typename... T> void set_vblank_int(const char *tag, T &&... args)
 	{
-		m_vblank_interrupt = std::forward<Object>(cb);
+		m_vblank_interrupt.set(std::forward<T>(args)...);
 		m_vblank_interrupt_screen = tag;
 	}
-	template <typename Object> void set_periodic_int(Object &&cb, const attotime &rate)
+	void remove_vblank_int()
 	{
-		m_timed_interrupt = std::forward<Object>(cb);
+		m_vblank_interrupt = device_interrupt_delegate(*this);
+		m_vblank_interrupt_screen = nullptr;
+	}
+
+	template <typename F> void set_periodic_int(F &&cb, const char *name, const attotime &rate)
+	{
+		m_timed_interrupt.set(std::forward<F>(cb), name);
 		m_timed_interrupt_period = rate;
 	}
-	template <typename Object> void set_irq_acknowledge_callback(Object &&cb) { m_driver_irq = std::forward<Object>(cb); }
+	template <typename T, typename F> void set_periodic_int(T &&target, F &&cb, const char *name, const attotime &rate)
+	{
+		m_timed_interrupt.set(std::forward<T>(target), std::forward<F>(cb), name);
+		m_timed_interrupt_period = rate;
+	}
+	void remove_periodic_int()
+	{
+		m_timed_interrupt = device_interrupt_delegate(*this);
+		m_timed_interrupt_period = attotime();
+	}
+
+	template <typename... T> void set_irq_acknowledge_callback(T &&... args)
+	{
+		m_driver_irq.set(std::forward<T>(args)...);
+	}
+	void remove_irq_acknowledge_callback()
+	{
+		m_driver_irq = device_irq_acknowledge_delegate(*this);
+	}
 
 	// execution management
 	device_scheduler &scheduler() const { assert(m_scheduler != nullptr); return *m_scheduler; }
@@ -237,10 +236,11 @@ protected:
 		if (device().machine().debug_flags & DEBUG_FLAG_ENABLED)
 			device().debug()->exception_hook(exception);
 	}
-	void debugger_interrupt_hook(int irqline)
+
+	void debugger_privilege_hook()
 	{
 		if (device().machine().debug_flags & DEBUG_FLAG_ENABLED)
-			device().debug()->interrupt_hook(irqline);
+			device().debug()->privilege_hook();
 	}
 
 private:

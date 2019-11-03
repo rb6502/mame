@@ -7,10 +7,15 @@
 
   Driver by Elsemi & Roberto Fresca.
 
+  TODO:
+  - missing starfield
+  - missing background gradient?
+  - look into moving to galaxian driver, or at least a derived class
+
 ***********************************************************************************
 
   Specs:
-  
+
   1x Zilog Z8400A PS (Z80A) CPU.
   1x Fairchild F6802P CPU.
 
@@ -22,11 +27,11 @@
   1x 2516 EPROM.
   17x 2532 EPROMs.
   1x TBP28L22N (256 x 8-bits) bipolar PROM.
-   
+
   2x 6-DIP switches banks.
 
   1x Xtal @ 14.318 MHz. (used for 6802 CPU & AY8910 sound devices).
-  1x Xtal @ 18.4320 MHz. (used for Z80 CPU). 
+  1x Xtal @ 18.4320 MHz. (used for Z80 CPU).
 
 
 ***********************************************************************************
@@ -55,9 +60,9 @@
   E000-FFFF  R   ROM Space.
 
 
-  There are 2 tilemaps: 
-	A 32x32 3BPP one with tile column scroll.
-	A 32x32 1BPP one fixed.
+  There are 2 tilemaps:
+    A 32x32 3BPP one with tile column scroll.
+    A 32x32 1BPP one fixed.
 
   1BPP tilemap is always shown under the main tilemap (maybe some video register controls this).
 
@@ -72,21 +77,21 @@
 
 
   VIDEO RAM STRUCTURE
-  
+
   A000-A3FF - 3bpp Tile layer tile code
   A400-A7FF - ?? doesn't seem used
-  A800-A83F	- Tile column scroll on even bytes. Tile column palette on odd bytes.
+  A800-A83F - Tile column scroll on even bytes. Tile column palette on odd bytes.
   A840-A85F - 8 sprites. 4 bytes per sprite:
-				  76543210
-				0 YYYYYYYY   Y position of the sprite
-				1 yxCCCCCC   x: xflip  y: yflip C: sprite code (of a 4 sprites block)
-				2 -----PPP	 P: Palette
-				3 XXXXXXXX   X position of the sprite
+                  76543210
+                0 YYYYYYYY   Y position of the sprite
+                1 yxCCCCCC   x: xflip  y: yflip C: sprite code (of a 4 sprites block)
+                2 -----PPP   P: Palette
+                3 XXXXXXXX   X position of the sprite
   A860-A87F - Bullets. 4 bytes per bullet
-				0 --------	Unknown (X pos high byte?)
-				1 XXXXXXXX  X position of the bullet
-				2 --------  Unknown (Y pos high byte?)
-				3 YYYYYYYY  Y position of the bullet
+                0 --------  Unknown (X pos high byte?)
+                1 XXXXXXXX  X position of the bullet
+                2 --------  Unknown (Y pos high byte?)
+                3 YYYYYYYY  Y position of the bullet
 
   AC00-AFFF - 1bpp Tile layer tile code
 
@@ -102,10 +107,10 @@
   B405 - Tile column scroll on/off. Almost, but not, because it's set to 0 on the galaxian stage, and it has scrolling on the top rows
   B406 - 1bpp tilemap on/off ?. Almost but not, because it's set to 0 on the title screen and the niemer text is on the 1bpp layer and must appear
   B407 - Tile bank
-  
+
   B800 -\-- these 2 values contain ror(Tilebank,1), ror(Tilebank,2). Sprites bank? always set to the same than Tile bank reg
   B801 -/
-  B802 -\	these 3 registers usually contain x, ror(x,1), ror(x,2) and are related to the 1bpp bitmap palette color. 2 is red, used for the "galaxian" level lines
+  B802 -\   these 3 registers usually contain x, ror(x,1), ror(x,2) and are related to the 1bpp bitmap palette color. 2 is red, used for the "galaxian" level lines
   B803 -|-- during the initial scene of the attract, when the bomb explodes, they cycle 1,2,3,3,3,3,4,5,6 to cycle several colors, yellow, blue and red
   B804 -/   in the logo screen, when it says "Fin del tiempo", the "Niemer" letters must be orange/brown, these are set to 3. Set to 7 in the survival stage (red laser)
   B805 - Always 00
@@ -136,7 +141,7 @@
                 +5V |06| F| +5V
        Coin Counter |07| G| Audio Out (not amplified)
                 N/C |08| H| N/C
-  Player 1 Button 2 |09| I| Coin Counter 
+  Player 1 Button 2 |09| I| Coin Counter
              Coin 1 |10| J| Player 1 Button 1
     Start 2 Players |11| K| Coin 2
       Player 1 Left |12| L| Player 1 Right
@@ -152,17 +157,18 @@
 
 **********************************************************************************/
 
-
 #include "emu.h"
 #include "includes/efdt.h"
+
 #include "cpu/z80/z80.h"
 #include "cpu/m6800/m6800.h"
+#include "machine/watchdog.h"
 #include "sound/ay8910.h"
 #include "screen.h"
 #include "speaker.h"
 
-#define MAIN_CLOCK     XTAL(18'432'000)
-#define SEC_CLOCK      XTAL(14'318'000)
+#define MAIN_CLOCK     18.432_MHz_XTAL
+#define SEC_CLOCK      14.318181_MHz_XTAL
 
 #define Z80_CLOCK      MAIN_CLOCK / 6    // 3.0720 MHz. (measured 3.06850).
 #define F6802_CLOCK    SEC_CLOCK / 4     // 3.5795 MHz. (measured 3.57488).
@@ -173,21 +179,19 @@
 *               Video Hardware               *
 *********************************************/
 
-PALETTE_INIT_MEMBER(efdt_state, efdt)
+void efdt_state::efdt_palette(palette_device &palette) const
 {
-	const uint8_t *color_prom = memregion("prom")->base();
+	uint8_t const *const color_prom = memregion("prom")->base();
 
 	for (int i = 0; i < 256; ++i)
 	{
-		uint8_t r, g, b;
+		uint8_t const v = color_prom[i];
 
-		uint8_t v = color_prom[i];
-		
-		g = (v & 7) << 5;
-		r = ((v >> 3) & 7) << 5;
-		b = ((v >> 6) & 3) << 6;
+		uint8_t const g = (v & 7) << 5;
+		uint8_t const r = ((v >> 3) & 7) << 5;
+		uint8_t const b = ((v >> 6) & 3) << 6;
 
-		if((i & 7) == 0)
+		if ((i & 7) == 0)
 			palette.set_pen_color(i, 0);
 		else
 			palette.set_pen_color(i, rgb_t(r, g, b));
@@ -215,21 +219,31 @@ TILE_GET_INFO_MEMBER(efdt_state::get_tile_info_1)
 	SET_TILE_INFO_MEMBER(1, code, 0x1c, 0);
 }
 
-VIDEO_START_MEMBER(efdt_state, efdt)
+void efdt_state::video_start()
 {
-	m_tilemap[0] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(efdt_state::get_tile_info_0), this), TILEMAP_SCAN_ROWS, 8, 8, 32, 32);
-	m_tilemap[1] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(efdt_state::get_tile_info_1), this), TILEMAP_SCAN_ROWS, 8, 8, 32, 32);
+	m_tilemap[0] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(efdt_state::get_tile_info_0)), TILEMAP_SCAN_ROWS, 8, 8, 32, 32);
+	m_tilemap[1] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(efdt_state::get_tile_info_1)), TILEMAP_SCAN_ROWS, 8, 8, 32, 32);
 
 	m_tilemap[0]->set_transparent_pen(0);
 	m_tilemap[1]->set_transparent_pen(0);
 }
 
+WRITE_LINE_MEMBER(efdt_state::vblank_nmi_w)
+{
+	if (state && m_vlatch[0]->q0_r())
+		m_maincpu->set_input_line(INPUT_LINE_NMI, ASSERT_LINE);
+}
+
+WRITE_LINE_MEMBER(efdt_state::nmi_clear_w)
+{
+	if (!state)
+		m_maincpu->set_input_line(INPUT_LINE_NMI, CLEAR_LINE);
+}
+
 uint32_t efdt_state::screen_update_efdt(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect)
 {
-	int bank = m_vregs1[7];
-
-	if (m_vregs1[4] != 0xff)	//startup tests require tile bank 1, but 0 is set to the vregs (reset sets it to 1?)
-		bank = 1;
+	int bank = m_vlatch[0]->q7_r() | (m_vlatch[1]->q0_r() << 1) | (m_vlatch[1]->q1_r() << 2);
+	//startup tests require tile bank 1, but 0 is set to the vregs (reset sets it to 1?)
 
 	m_tilebank = bank << 8;
 
@@ -239,12 +253,12 @@ uint32_t efdt_state::screen_update_efdt(screen_device &screen, bitmap_ind16 &bit
 	bitmap.fill(0, cliprect);
 
 	m_tilemap[0]->set_scroll_cols(32);
-	
+
 	for (int i = 0; i < 32; ++i)
 	{
 		m_tilemap[0]->set_scrolly(i, m_videoram[2 * i + 0x800]);
 	}
-	
+
 	m_tilemap[1]->draw(screen, bitmap, cliprect, 0, 0);
 	m_tilemap[0]->draw(screen, bitmap, cliprect, 0, 0);
 
@@ -259,7 +273,7 @@ uint32_t efdt_state::screen_update_efdt(screen_device &screen, bitmap_ind16 &bit
 		uint8_t pal = *sprram++;
 		uint8_t x = *sprram++;
 
-		int xtra = code & 0xc0;	//flip
+		int xtra = code & 0xc0; //flip
 
 		if (y == 0 && x == 0/* && code == 0 && pal == 0 */)
 			continue;
@@ -286,7 +300,7 @@ uint32_t efdt_state::screen_update_efdt(screen_device &screen, bitmap_ind16 &bit
 			gfx->transpen(bitmap, cliprect, code + 3, pal, 0, 1, x + 8, y, 0);
 			gfx->transpen(bitmap, cliprect, code + 0, pal, 0, 1, x + 0, y + 8, 0);
 			gfx->transpen(bitmap, cliprect, code + 1, pal, 0, 1, x + 8, y + 8, 0);
-			
+
 		}
 		else if ((xtra & 0xc0) == 0xc0)
 		{
@@ -294,15 +308,6 @@ uint32_t efdt_state::screen_update_efdt(screen_device &screen, bitmap_ind16 &bit
 			gfx->transpen(bitmap, cliprect, code + 2, pal, 1, 1, x + 8, y, 0);
 			gfx->transpen(bitmap, cliprect, code + 1, pal, 1, 1, x + 0, y + 8, 0);
 			gfx->transpen(bitmap, cliprect, code + 0, pal, 1, 1, x + 8, y + 8, 0);
-
-		}
-		else if (xtra & 0x80)
-		{
-			gfx->transpen(bitmap, cliprect, code + 2, pal, 0, 1, x, y, 0);
-			gfx->transpen(bitmap, cliprect, code + 3, pal, 0, 1, x + 8, y, 0);
-			gfx->transpen(bitmap, cliprect, code + 0, pal, 0, 1, x + 0, y + 8, 0);
-			gfx->transpen(bitmap, cliprect, code + 1, pal, 0, 1, x + 8, y + 8, 0);
-
 		}
 		else
 		{
@@ -310,7 +315,7 @@ uint32_t efdt_state::screen_update_efdt(screen_device &screen, bitmap_ind16 &bit
 			gfx->transpen(bitmap, cliprect, code + 1, pal, 0, 0, x + 8, y, 0);
 			gfx->transpen(bitmap, cliprect, code + 2, pal, 0, 0, x + 0, y + 8, 0);
 			gfx->transpen(bitmap, cliprect, code + 3, pal, 0, 0, x + 8, y + 8, 0);
-			
+
 		}
 	}
 
@@ -340,23 +345,26 @@ uint32_t efdt_state::screen_update_efdt(screen_device &screen, bitmap_ind16 &bit
 
 void efdt_state::efdt_map(address_map &map)
 {
-	map(0x0000, 0x7fff).rom();
+	map(0x0000, 0x7fff).rom().region("maincpu", 0);
 	map(0x8000, 0x87ff).ram();
 
 	map(0x8800, 0x8803).rw(FUNC(efdt_state::main_soundlatch_r), FUNC(efdt_state::main_soundlatch_w));
-//	map(0x8800, 0x8803).rw("soundlatch", FUNC(generic_latch_8_device::read), FUNC(generic_latch_8_device::write));  // TODO...
+//  map(0x8800, 0x8803).rw("soundlatch", FUNC(generic_latch_8_device::read), FUNC(generic_latch_8_device::write));  // TODO...
 
 	map(0x9000, 0x93ff).portr("P1");
 	map(0x9400, 0x97ff).portr("P2");
 
 	map(0xa000, 0xafff).ram().share("videoram");
-	map(0xb400, 0xb40f).ram().share("vregs1");
-	map(0xb800, 0xb80f).ram().share("vregs2");
+	map(0xb000, 0xb000).r("watchdog", FUNC(watchdog_timer_device::reset_r));
+	map(0xb400, 0xb407).w(m_vlatch[0], FUNC(ls259_device::write_d0));
+	map(0xb800, 0xb807).w(m_vlatch[1], FUNC(ls259_device::write_d0));
 }
 
 void efdt_state::efdt_snd_map(address_map &map)
 {
 	map(0x0000, 0x007f).ram();
+	map(0x6000, 0x6000).nopw();
+	map(0x7000, 0x7000).nopw();
 	map(0x8000, 0x83ff).ram();
 
 	map(0x9000, 0x9000).rw("ay1", FUNC(ay8910_device::data_r), FUNC(ay8910_device::data_w));
@@ -365,7 +373,7 @@ void efdt_state::efdt_snd_map(address_map &map)
 	map(0x9400, 0x9400).rw("ay2", FUNC(ay8910_device::data_r), FUNC(ay8910_device::data_w));
 	map(0x9600, 0x9600).w("ay2", FUNC(ay8910_device::address_w));
 
-	map(0xe000, 0xffff).rom();
+	map(0xe000, 0xffff).rom().region("audiocpu", 0);
 }
 
 
@@ -464,14 +472,14 @@ WRITE8_MEMBER(efdt_state::soundlatch_1_w)
 {
 	if (!(data == 0xfd || data == 0xf5))
 	{
-//		int a = 1;
+//      int a = 1;
 	}
 
 	if(data & 4)
 		m_soundControl &= ~2;
 
 	//if (data & 8)
-	//	m_soundControl &= ~1;
+	//  m_soundControl &= ~1;
 }
 
 READ8_MEMBER(efdt_state::soundlatch_2_r)
@@ -503,7 +511,7 @@ static const gfx_layout tilelayout3bpp =
 {
 	8,8,
 	RGN_FRAC(1,3),
-	3,  
+	3,
 	{ 0, RGN_FRAC(1,3), RGN_FRAC(2,3) },
 	{ STEP8(0,1) },
 	{ STEP8(0,8) },
@@ -536,50 +544,53 @@ GFXDECODE_END
 *              Machine Driver                *
 *********************************************/
 
-MACHINE_CONFIG_START( efdt_state::efdt )
-
+void efdt_state::efdt(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", Z80, Z80_CLOCK)
-	MCFG_DEVICE_PROGRAM_MAP(efdt_map)
-	MCFG_DEVICE_VBLANK_INT_DRIVER("screen", efdt_state, nmi_line_pulse)
+	Z80(config, m_maincpu, Z80_CLOCK);
+	m_maincpu->set_addrmap(AS_PROGRAM, &efdt_state::efdt_map);
 
-	MCFG_DEVICE_ADD("audiocpu", M6802, F6802_CLOCK)
-	MCFG_DEVICE_PROGRAM_MAP(efdt_snd_map)
-	MCFG_DEVICE_PERIODIC_INT_DRIVER(efdt_state, irq0_line_hold, 3574880 / 8192)
+	M6802(config, m_audiocpu, F6802_CLOCK);
+	m_audiocpu->set_addrmap(AS_PROGRAM, &efdt_state::efdt_snd_map);
+	m_audiocpu->set_periodic_int(FUNC(efdt_state::irq0_line_hold), attotime::from_hz(F6802_CLOCK / 8192));
+
+	LS259(config, m_vlatch[0]);
+	m_vlatch[0]->q_out_cb<0>().set(FUNC(efdt_state::nmi_clear_w));
+
+	LS259(config, m_vlatch[1]);
+
+	WATCHDOG_TIMER(config, "watchdog");
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_SIZE(32*8, 32*8)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(2500))
-	MCFG_SCREEN_VISIBLE_AREA(0, 32*8 - 1, 16, 30*8 - 1)
-	MCFG_SCREEN_UPDATE_DRIVER(efdt_state, screen_update_efdt)
-	MCFG_SCREEN_PALETTE("palette")
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_size(32*8, 32*8);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(2500));
+	screen.set_visarea(0, 32*8 - 1, 16, 30*8 - 1);
+	screen.set_screen_update(FUNC(efdt_state::screen_update_efdt));
+	screen.set_palette(m_palette);
+	screen.screen_vblank().set(FUNC(efdt_state::vblank_nmi_w));
 
-	MCFG_DEVICE_ADD("gfxdecode", GFXDECODE, "palette", gfx_efdt)
-	MCFG_PALETTE_ADD("palette", 64)
-	MCFG_PALETTE_INIT_OWNER(efdt_state, efdt)
-
-	MCFG_VIDEO_START_OVERRIDE(efdt_state, efdt)
+	GFXDECODE(config, m_gfxdecode, m_palette, gfx_efdt);
+	PALETTE(config, m_palette, FUNC(efdt_state::efdt_palette), 256);
 
 	/* sound hardware */
 	SPEAKER(config, "mono").front_center();
 
-	MCFG_DEVICE_ADD("ay1", AY8910, AY8910_CLOCK)
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 1.0)
-	MCFG_AY8910_PORT_A_READ_CB(READ8(*this, efdt_state, soundlatch_0_r))
-	MCFG_AY8910_PORT_B_READ_CB(READ8(*this, efdt_state, soundlatch_1_r))
-	MCFG_AY8910_PORT_A_WRITE_CB(WRITE8(*this, efdt_state, soundlatch_0_w))
-	MCFG_AY8910_PORT_B_WRITE_CB(WRITE8(*this, efdt_state, soundlatch_1_w))
-	
-	MCFG_DEVICE_ADD("ay2", AY8910, AY8910_CLOCK)
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 1.0)
-	MCFG_AY8910_PORT_A_READ_CB(READ8(*this, efdt_state, soundlatch_2_r))
-	MCFG_AY8910_PORT_B_READ_CB(READ8(*this, efdt_state, soundlatch_3_r))
-	MCFG_AY8910_PORT_A_WRITE_CB(WRITE8(*this, efdt_state, soundlatch_2_w))
-	MCFG_AY8910_PORT_B_WRITE_CB(WRITE8(*this, efdt_state, soundlatch_3_w))
+	ay8910_device &ay1(AY8910(config, "ay1", AY8910_CLOCK));
+	ay1.add_route(ALL_OUTPUTS, "mono", 1.0);
+	ay1.port_a_read_callback().set(FUNC(efdt_state::soundlatch_0_r));
+	ay1.port_b_read_callback().set(FUNC(efdt_state::soundlatch_1_r));
+	ay1.port_a_write_callback().set(FUNC(efdt_state::soundlatch_0_w));
+	ay1.port_b_write_callback().set(FUNC(efdt_state::soundlatch_1_w));
 
-MACHINE_CONFIG_END
+	ay8910_device &ay2(AY8910(config, "ay2", AY8910_CLOCK));
+	ay2.add_route(ALL_OUTPUTS, "mono", 1.0);
+	ay2.port_a_read_callback().set(FUNC(efdt_state::soundlatch_2_r));
+	ay2.port_b_read_callback().set(FUNC(efdt_state::soundlatch_3_r));
+	ay2.port_a_write_callback().set(FUNC(efdt_state::soundlatch_2_w));
+	ay2.port_b_write_callback().set(FUNC(efdt_state::soundlatch_3_w));
+}
 
 
 /*********************************************
@@ -595,9 +606,9 @@ ROM_START( efdt )
 	ROM_LOAD( "22801.a10", 0x4000, 0x1000, CRC(ea646049) SHA1(bca30cb2dde8b5c78f6108cb9a43e0dce697f761))
 	ROM_LOAD( "22802.a9",  0x5000, 0x1000, CRC(74457952) SHA1(f5f4ece564cbdb650204ccd5abdf39d0d3c595b3))
 
-	ROM_REGION( 0x10000, "audiocpu", 0 ) 
-	ROM_LOAD(   "1811.d8",   0xE000, 0x1000, CRC(0ff5d0c2) SHA1(93df487d3236284765dd3d690474c130464e3e27))
-	ROM_LOAD(   "1812.d7",   0xF000, 0x1000, CRC(48e5a4ac) SHA1(9da4800215c91b2be9df3375f9601b19353c0ec0))
+	ROM_REGION( 0x2000, "audiocpu", 0 )
+	ROM_LOAD(   "1811.d8",   0x0000, 0x1000, CRC(0ff5d0c2) SHA1(93df487d3236284765dd3d690474c130464e3e27))
+	ROM_LOAD(   "1812.d7",   0x1000, 0x1000, CRC(48e5a4ac) SHA1(9da4800215c91b2be9df3375f9601b19353c0ec0))
 
 	ROM_REGION( 0x9000, "gfx1", 0 )
 	ROM_LOAD( "12822.j3", 0x2000, 0x1000, CRC(f4d28a60) SHA1(bc1d7f4392805cd204ecfe9c3301990a7b710567) )
@@ -609,7 +620,7 @@ ROM_START( efdt )
 	ROM_LOAD( "12816.j9", 0x8000, 0x1000, CRC(69664044) SHA1(57465c4c37be2b4846b49a13dec9e354dabb155a) )
 	ROM_LOAD( "12815.j10", 0x7000, 0x1000, CRC(abe7a7b6) SHA1(e3bc6aa3a741fcfa2eafb1464be3cb5437d5fd90) )
 	ROM_LOAD( "12814.j11", 0x6000, 0x1000, CRC(6c06f746) SHA1(c7e80c5dde733e9ef520b9afa78bed902f04b74d) )
-	
+
 	ROM_REGION( 0x800, "gfx2", 0 )
 	ROM_LOAD( "12813.h10", 0x0000, 0x0800, CRC(ea03c5a8) SHA1(7ce385b43a24cbbc780162ed89031d1cc1b0b9ef))
 
@@ -623,4 +634,4 @@ ROM_END
 *********************************************/
 
 //    YEAR  NAME    PARENT  MACHINE   INPUT    STATE        INIT        ROT     COMPANY   FULLNAME            FLAGS
-GAME( 1981, efdt,   0,      efdt,     efdt,    efdt_state,  empty_init, ROT90, "Niemer", "El Fin Del Tiempo", 0 )
+GAME( 1981, efdt,   0,      efdt,     efdt,    efdt_state,  empty_init, ROT90, "Niemer", "El Fin Del Tiempo", MACHINE_IMPERFECT_GRAPHICS )

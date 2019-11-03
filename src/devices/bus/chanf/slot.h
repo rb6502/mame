@@ -25,7 +25,7 @@ enum
 
 // ======================> device_channelf_cart_interface
 
-class device_channelf_cart_interface : public device_slot_card_interface
+class device_channelf_cart_interface : public device_interface
 {
 public:
 	// device_channelf_cart_interface/destruction
@@ -35,7 +35,7 @@ public:
 	virtual DECLARE_READ8_MEMBER(read_rom) { return 0xff; }
 	virtual DECLARE_READ8_MEMBER(read_ram) { return 0xff; }
 	virtual DECLARE_WRITE8_MEMBER(write_ram) { }
-	virtual DECLARE_WRITE8_MEMBER(write_bank)  {}
+	virtual DECLARE_WRITE8_MEMBER(write_bank)  { }
 
 	void rom_alloc(uint32_t size, const char *tag);
 	void ram_alloc(uint32_t size);
@@ -60,11 +60,21 @@ protected:
 
 class channelf_cart_slot_device : public device_t,
 								public device_image_interface,
-								public device_slot_interface
+								public device_single_card_slot_interface<device_channelf_cart_interface>
 {
 public:
 	// construction/destruction
-	channelf_cart_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
+	template <typename T>
+	channelf_cart_slot_device(machine_config const &mconfig, char const *tag, device_t *owner, T &&opts, char const *dflt)
+		: channelf_cart_slot_device(mconfig, tag, owner, 0)
+	{
+		option_reset();
+		opts(*this);
+		set_default_option(dflt);
+		set_fixed(false);
+	}
+
+	channelf_cart_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock = 0);
 	virtual ~channelf_cart_slot_device();
 
 	// device-level overrides
@@ -114,9 +124,5 @@ DECLARE_DEVICE_TYPE(CHANF_CART_SLOT, channelf_cart_slot_device)
  ***************************************************************************/
 
 #define CHANFSLOT_ROM_REGION_TAG ":cart:rom"
-
-#define MCFG_CHANNELF_CARTRIDGE_ADD(_tag,_slot_intf,_def_slot) \
-	MCFG_DEVICE_ADD(_tag, CHANF_CART_SLOT, 0) \
-	MCFG_DEVICE_SLOT_INTERFACE(_slot_intf, _def_slot, false)
 
 #endif // MAME_BUS_CHANF_SLOT_H

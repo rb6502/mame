@@ -30,6 +30,9 @@ public:
 		, m_digits(*this, "digit%u", 0U)
 	{ }
 
+	void techno(machine_config &config);
+
+private:
 	enum
 	{
 		IRQ_SET_TIMER,
@@ -51,11 +54,10 @@ public:
 	DECLARE_READ8_MEMBER(rd_r) { return 0; }
 	DECLARE_WRITE8_MEMBER(wr_w) {}
 
-	void techno(machine_config &config);
 	void techno_map(address_map &map);
 	void techno_sub_map(address_map &map);
+	void cpu_space_map(address_map &map);
 
-private:
 	virtual void device_timer(emu_timer &timer, device_timer_id id, int param, void *ptr) override;
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
@@ -251,6 +253,12 @@ static INPUT_PORTS_START( techno )
 	PORT_BIT( 0x80, IP_ACTIVE_HIGH, IPT_OTHER ) PORT_NAME("Fix top left target middle") PORT_CODE(KEYCODE_EQUALS)
 INPUT_PORTS_END
 
+void techno_state::cpu_space_map(address_map &map)
+{
+	map(0xfffff0, 0xffffff).m(m_maincpu, FUNC(m68000_base_device::autovectors_map));
+	map(0xfffff2, 0xfffff3).lr16(NAME([this] () -> u16 { return m_vector; }));
+}
+
 void techno_state::device_timer(emu_timer &timer, device_timer_id id, int param, void *ptr)
 {
 	if (id == IRQ_ADVANCE_TIMER)
@@ -265,7 +273,7 @@ void techno_state::device_timer(emu_timer &timer, device_timer_id id, int param,
 	}
 	else if (id == IRQ_SET_TIMER)
 	{
-		m_maincpu->set_input_line_and_vector(M68K_IRQ_1, ASSERT_LINE, m_vector);
+		m_maincpu->set_input_line(M68K_IRQ_1, ASSERT_LINE);
 		m_irq_advance_timer->adjust(attotime::from_hz(XTAL(8'000'000) / 32));
 	}
 }
@@ -287,18 +295,21 @@ void techno_state::machine_reset()
 	m_maincpu->set_input_line(M68K_IRQ_1, CLEAR_LINE);
 }
 
-MACHINE_CONFIG_START(techno_state::techno)
+void techno_state::techno(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", M68000, XTAL(8'000'000))
-	MCFG_DEVICE_PROGRAM_MAP(techno_map)
-	MCFG_NVRAM_ADD_0FILL("nvram")
+	M68000(config, m_maincpu, XTAL(8'000'000));
+	m_maincpu->set_addrmap(AS_PROGRAM, &techno_state::techno_map);
+	m_maincpu->set_addrmap(m68000_base_device::AS_CPU_SPACE, &techno_state::cpu_space_map);
 
-	//MCFG_DEVICE_ADD("cpu2", TMS7000, XTAL(4'000'000))
-	//MCFG_DEVICE_PROGRAM_MAP(techno_sub_map)
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_0);
+
+	//tms7000_device &cpu2(TMS7000(config, "cpu2", XTAL(4'000'000)));
+	//cpu2.set_addrmap(AS_PROGRAM, &techno_state::techno_sub_map);
 
 	/* Video */
-	MCFG_DEFAULT_LAYOUT(layout_techno)
-MACHINE_CONFIG_END
+	config.set_default_layout(layout_techno);
+}
 
 ROM_START(xforce)
 	ROM_REGION(0x10000, "maincpu", 0)

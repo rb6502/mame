@@ -32,12 +32,11 @@ public:
 		m_palette(*this, "palette")
 	{ }
 
-	DECLARE_CUSTOM_INPUT_MEMBER(get_vblank);
+	DECLARE_READ_LINE_MEMBER(vblank_r);
 	void ccastles(machine_config &config);
 
 protected:
 	DECLARE_WRITE8_MEMBER(irq_ack_w);
-	template<int C> DECLARE_WRITE_LINE_MEMBER(ccounter_w);
 	DECLARE_READ8_MEMBER(leta_r);
 	DECLARE_WRITE8_MEMBER(nvram_recall_w);
 	DECLARE_WRITE_LINE_MEMBER(nvram_store_w);

@@ -1275,15 +1275,17 @@ WRITE16_MEMBER( raiden2cop_device::cop_sprite_dma_src_lo_w)
 	m_cop_sprite_dma_src = (m_cop_sprite_dma_src&0xffff0000)|(data&0xffff);
 }
 
-// guess
 WRITE16_MEMBER(raiden2cop_device::cop_sprite_dma_inc_w)
 {
 	if (data)
 		printf("Warning: COP RAM 0x410 used with %04x\n", data);
 	else
 	{
-		/* guess */
-		cop_regs[4] += 8;
+		// Don't increment if the sprite DMA is out of bounds
+		// (A3 doesn't get updated if it happens, cfr. code at $1e56)
+		// TODO: hardwired for SD Gundam, must be user controllable somehow.
+		if (m_sprite_dma_x_clip >= -160 && m_sprite_dma_x_clip < 320)
+			cop_regs[4] += 8;
 		m_cop_sprite_dma_src += 6;
 
 		m_cop_sprite_dma_size--;
@@ -1310,7 +1312,7 @@ WRITE16_MEMBER( raiden2cop_device::cop_unk_param_b_w)
 	COMBINE_DATA(&m_cop_unk_param_b);
 }
 
-// cupsoc always writes 0xF before commands 0x5105, 0x5905, 0xD104 and 0xF105 and 0xE before 0xD104, then resets this to zero
+// cupsoc always writes 0xF before commands 0x5105, 0x5905, 0xD104 and 0xF105 and 0xE before 0xDDE5, then resets this to zero
 // zeroteam writes 0xE here before 0xEDE5, then resets it to zero
 WRITE16_MEMBER( raiden2cop_device::cop_precmd_w)
 {

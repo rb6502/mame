@@ -34,7 +34,6 @@
 #include "machine/rp5c01.h"
 #include "machine/timer.h"
 #include "emupal.h"
-#include "rendlay.h"
 #include "screen.h"
 
 
@@ -52,6 +51,13 @@ public:
 	{
 	}
 
+	void mstation(machine_config &config);
+
+protected:
+	virtual void machine_start() override;
+	virtual void machine_reset() override;
+
+private:
 	required_device<cpu_device> m_maincpu;
 	required_device<ram_device> m_ram;
 	required_device<address_map_bank_device> m_bankdev1;
@@ -61,7 +67,7 @@ public:
 
 	uint8_t m_bank1[2];
 	uint8_t m_bank2[2];
-	uint8_t *m_vram;
+	std::unique_ptr<uint8_t[]> m_vram;
 	uint8_t m_screen_column;
 	uint8_t m_port2;
 	uint8_t m_irq;
@@ -92,13 +98,10 @@ public:
 
 	DECLARE_WRITE_LINE_MEMBER( rtc_irq );
 
-	virtual void machine_start() override;
-	virtual void machine_reset() override;
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
-	DECLARE_PALETTE_INIT(mstation);
+	void mstation_palette(palette_device &palette) const;
 	TIMER_DEVICE_CALLBACK_MEMBER(mstation_1hz_timer);
 	TIMER_DEVICE_CALLBACK_MEMBER(mstation_kb_timer);
-	void mstation(machine_config &config);
 	void mstation_banked_map(address_map &map);
 	void mstation_io(address_map &map);
 	void mstation_mem(address_map &map);
@@ -285,7 +288,7 @@ void mstation_state::mstation_io(address_map &map)
 	map(0x07, 0x08).rw(FUNC(mstation_state::bank2_r), FUNC(mstation_state::bank2_w));
 	map(0x09, 0x09).r(FUNC(mstation_state::battery_status_r));
 	map(0x10, 0x1f).rw("rtc", FUNC(rp5c01_device::read), FUNC(rp5c01_device::write));
-	//AM_RANGE( 0x2c, 0x2c ) printer
+	//map(0x2c, 0x2c) printer
 }
 
 
@@ -395,7 +398,7 @@ INPUT_PORTS_END
 void mstation_state::machine_start()
 {
 	// allocate the videoram
-	m_vram = (uint8_t*)machine().memory().region_alloc( "vram", 9600, 1, ENDIANNESS_LITTLE )->base();
+	m_vram = make_unique_clear<uint8_t[]>(9600);
 
 	// map firsh RAM bank at 0xc000-0xffff
 	membank("sysram")->set_base(m_nvram);
@@ -406,7 +409,6 @@ void mstation_state::machine_reset()
 {
 	m_bank1[0] =  m_bank1[1] = 0;
 	m_bank2[0] =  m_bank2[1] = 0;
-	memset(m_vram, 0, 9600);
 
 	// reset banks
 	m_bankdev1->set_bank(0);
@@ -437,60 +439,49 @@ TIMER_DEVICE_CALLBACK_MEMBER(mstation_state::mstation_kb_timer)
 	refresh_ints();
 }
 
-PALETTE_INIT_MEMBER(mstation_state, mstation)
+void mstation_state::mstation_palette(palette_device &palette) const
 {
 	palette.set_pen_color(0, rgb_t(138, 146, 148));
 	palette.set_pen_color(1, rgb_t(92, 83, 88));
 }
 
 
-MACHINE_CONFIG_START(mstation_state::mstation)
+void mstation_state::mstation(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu",Z80, XTAL(4'000'000))      //unknown clock
-	MCFG_DEVICE_PROGRAM_MAP(mstation_mem)
-	MCFG_DEVICE_IO_MAP(mstation_io)
+	Z80(config, m_maincpu, XTAL(4'000'000));      //unknown clock
+	m_maincpu->set_addrmap(AS_PROGRAM, &mstation_state::mstation_mem);
+	m_maincpu->set_addrmap(AS_IO, &mstation_state::mstation_io);
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", LCD)
-	MCFG_SCREEN_REFRESH_RATE(50)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(2500)) /* not accurate */
-	MCFG_SCREEN_UPDATE_DRIVER(mstation_state, screen_update)
-	MCFG_SCREEN_SIZE(320, 128)
-	MCFG_SCREEN_VISIBLE_AREA(0, 320-1, 0, 128-1)
-	MCFG_SCREEN_PALETTE("palette")
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_LCD));
+	screen.set_refresh_hz(50);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(2500)); /* not accurate */
+	screen.set_screen_update(FUNC(mstation_state::screen_update));
+	screen.set_size(320, 128);
+	screen.set_visarea(0, 320-1, 0, 128-1);
+	screen.set_palette("palette");
 
-	MCFG_PALETTE_ADD("palette", 2)
-	MCFG_PALETTE_INIT_OWNER(mstation_state, mstation)
-	MCFG_DEFAULT_LAYOUT(layout_lcd)
+	PALETTE(config, "palette", FUNC(mstation_state::mstation_palette), 2);
 
-	MCFG_AMD_29F080_ADD("flash0")
-	MCFG_SST_28SF040_ADD("flash1")
+	AMD_29F080(config, "flash0");
+	SST_28SF040(config, "flash1");
 
 	// IRQ 4 is generated every second, used for auto power off
-	MCFG_TIMER_DRIVER_ADD_PERIODIC("1hz_timer", mstation_state, mstation_1hz_timer, attotime::from_hz(1))
+	TIMER(config, "1hz_timer").configure_periodic(FUNC(mstation_state::mstation_1hz_timer), attotime::from_hz(1));
 
 	// IRQ 1 is used for scan the kb and for cursor blinking
-	MCFG_TIMER_DRIVER_ADD_PERIODIC("kb_timer", mstation_state, mstation_kb_timer, attotime::from_hz(50))
+	TIMER(config, "kb_timer").configure_periodic(FUNC(mstation_state::mstation_kb_timer), attotime::from_hz(50));
 
-	MCFG_DEVICE_ADD("rtc", RP5C01, XTAL(32'768))
-	MCFG_RP5C01_OUT_ALARM_CB(WRITELINE(*this, mstation_state, rtc_irq))
+	rp5c01_device &rtc(RP5C01(config, "rtc", XTAL(32'768)));
+	rtc.out_alarm_callback().set(FUNC(mstation_state::rtc_irq));
 
-	MCFG_DEVICE_ADD("bank0", ADDRESS_MAP_BANK, 0)
-	MCFG_DEVICE_PROGRAM_MAP(mstation_banked_map)
-	MCFG_ADDRESS_MAP_BANK_ENDIANNESS(ENDIANNESS_LITTLE)
-	MCFG_ADDRESS_MAP_BANK_DATA_WIDTH(8)
-	MCFG_ADDRESS_MAP_BANK_STRIDE(0x4000)
-
-	MCFG_DEVICE_ADD("bank1", ADDRESS_MAP_BANK, 0)
-	MCFG_DEVICE_PROGRAM_MAP(mstation_banked_map)
-	MCFG_ADDRESS_MAP_BANK_ENDIANNESS(ENDIANNESS_LITTLE)
-	MCFG_ADDRESS_MAP_BANK_DATA_WIDTH(8)
-	MCFG_ADDRESS_MAP_BANK_STRIDE(0x4000)
+	ADDRESS_MAP_BANK(config, "bank0").set_map(&mstation_state::mstation_banked_map).set_options(ENDIANNESS_LITTLE, 8, 32, 0x4000);
+	ADDRESS_MAP_BANK(config, "bank1").set_map(&mstation_state::mstation_banked_map).set_options(ENDIANNESS_LITTLE, 8, 32, 0x4000);
 
 	/* internal ram */
-	MCFG_RAM_ADD(RAM_TAG)
-	MCFG_RAM_DEFAULT_SIZE("128K")
-MACHINE_CONFIG_END
+	RAM(config, RAM_TAG).set_default_size("128K");
+}
 
 /* ROM definition */
 ROM_START( mstation )

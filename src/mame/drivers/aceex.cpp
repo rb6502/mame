@@ -56,10 +56,13 @@ public:
 		: driver_device(mconfig, type, tag)
 		,m_maincpu(*this, "maincpu")
 	{ }
+
+	void aceex2814(machine_config &config);
+
+private:
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 	required_device<cpu_device> m_maincpu;
-	void aceex2814(machine_config &config);
 	void aceex2814_map(address_map &map);
 };
 
@@ -81,12 +84,13 @@ void aceex2814_state::machine_reset()
 
 #define Y1_CLOCK 40320000
 #define Y2_CLOCK 45342720
-MACHINE_CONFIG_START(aceex2814_state::aceex2814)
+void aceex2814_state::aceex2814(machine_config &config)
+{
 
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", I80C31, Y2_CLOCK)
-	MCFG_DEVICE_PROGRAM_MAP(aceex2814_map)
-MACHINE_CONFIG_END
+	I80C31(config, m_maincpu, Y2_CLOCK);
+	m_maincpu->set_addrmap(AS_PROGRAM, &aceex2814_state::aceex2814_map);
+}
 
 ROM_START( aceex2814 )
 	ROM_REGION( 0x10000, "maincpu", 0 )

@@ -28,7 +28,7 @@ enum
 
 // ======================> device_m5_cart_interface
 
-class device_m5_cart_interface : public device_slot_card_interface
+class device_m5_cart_interface : public device_interface
 {
 public:
 	// construction/destruction
@@ -62,15 +62,22 @@ protected:
 
 class m5_cart_slot_device : public device_t,
 								public device_image_interface,
-								public device_slot_interface
+								public device_single_card_slot_interface<device_m5_cart_interface>
 {
 public:
 	// construction/destruction
-	m5_cart_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
-	virtual ~m5_cart_slot_device();
+	template <typename T>
+	m5_cart_slot_device(machine_config const &mconfig, char const *tag, device_t *owner, T &&opts, char const *dflt)
+		: m5_cart_slot_device(mconfig, tag, owner, 0)
+	{
+		option_reset();
+		opts(*this);
+		set_default_option(dflt);
+		set_fixed(false);
+	}
 
-	// device-level overrides
-	virtual void device_start() override;
+	m5_cart_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock = 0);
+	virtual ~m5_cart_slot_device();
 
 	// image-level overrides
 	virtual image_init_result call_load() override;
@@ -99,6 +106,8 @@ public:
 	virtual DECLARE_WRITE8_MEMBER(write_ram);
 
 protected:
+	// device-level overrides
+	virtual void device_start() override;
 
 	int m_type;
 	device_m5_cart_interface*       m_cart;
@@ -115,10 +124,5 @@ DECLARE_DEVICE_TYPE(M5_CART_SLOT, m5_cart_slot_device)
  ***************************************************************************/
 
 #define M5SLOT_ROM_REGION_TAG ":cart:rom"
-
-#define MCFG_M5_CARTRIDGE_ADD(_tag,_slot_intf,_def_slot) \
-	MCFG_DEVICE_ADD(_tag, M5_CART_SLOT, 0) \
-	MCFG_DEVICE_SLOT_INTERFACE(_slot_intf, _def_slot, false)
-
 
 #endif // MAME_BUS_M5_SLOT_H

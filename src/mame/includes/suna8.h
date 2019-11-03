@@ -1,11 +1,16 @@
 // license:BSD-3-Clause
 // copyright-holders:Luca Elia
+#ifndef MAME_INCLUDES_SUNA8_H
+#define MAME_INCLUDES_SUNA8_H
+
+#pragma once
 
 #include "machine/gen_latch.h"
 #include "machine/timer.h"
 #include "sound/samples.h"
 #include "emupal.h"
 #include "screen.h"
+#include "tilemap.h"
 
 #define TILEMAPS 0
 
@@ -34,6 +39,29 @@ public:
 		m_leds(*this, "led%u", 0U)
 	{ }
 
+	void brickzn(machine_config &config);
+	void starfigh(machine_config &config);
+	void sparkman(machine_config &config);
+	void hardhea2b(machine_config &config);
+	void brickzn11(machine_config &config);
+	void hardhead(machine_config &config);
+	void hardhea2(machine_config &config);
+	void rranger(machine_config &config);
+
+	void init_brickzn_common();
+	void init_brickznv5();
+	void init_brickznv4();
+	void init_starfigh();
+	void init_hardhea2();
+	void init_hardhea2b();
+	void init_hardhedb();
+	void init_sparkman();
+	void init_brickzn();
+	void init_brickzn11();
+	void init_hardhead();
+	void init_suna8();
+
+private:
 	enum GFXBANK_TYPE_T
 	{
 		GFXBANK_TYPE_SPARKMAN,
@@ -96,18 +124,6 @@ public:
 	DECLARE_READ8_MEMBER(suna8_banked_spriteram_r);
 	DECLARE_WRITE8_MEMBER(suna8_spriteram_w);
 	DECLARE_WRITE8_MEMBER(suna8_banked_spriteram_w);
-	void init_brickzn_common();
-	void init_brickznv5();
-	void init_brickznv4();
-	void init_starfigh();
-	void init_hardhea2();
-	void init_hardhea2b();
-	void init_hardhedb();
-	void init_sparkman();
-	void init_brickzn();
-	void init_brickzn11();
-	void init_hardhead();
-	void init_suna8();
 
 	void suna8_vh_start_common(bool has_text, GFXBANK_TYPE_T gfxbank_type);
 	DECLARE_VIDEO_START(suna8_text);
@@ -130,14 +146,7 @@ public:
 	void draw_sprites     (screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect, int start, int end, int which);
 	void draw_text_sprites(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect, int start, int end, int ypos, bool write_mask);
 	uint8_t *brickzn_decrypt();
-	void brickzn(machine_config &config);
-	void starfigh(machine_config &config);
-	void sparkman(machine_config &config);
-	void hardhea2b(machine_config &config);
-	void brickzn11(machine_config &config);
-	void hardhead(machine_config &config);
-	void hardhea2(machine_config &config);
-	void rranger(machine_config &config);
+
 	void brickzn11_map(address_map &map);
 	void brickzn_io_map(address_map &map);
 	void brickzn_map(address_map &map);
@@ -146,6 +155,8 @@ public:
 	void brickzn_sound_map(address_map &map);
 	void decrypted_opcodes_map(address_map &map);
 	void hardhea2_map(address_map &map);
+	void hardhea2b_map(address_map &map);
+	void hardhea2b_decrypted_opcodes_map(address_map &map);
 	void hardhead_io_map(address_map &map);
 	void hardhead_map(address_map &map);
 	void hardhead_sound_io_map(address_map &map);
@@ -156,7 +167,6 @@ public:
 	void sparkman_map(address_map &map);
 	void starfigh_map(address_map &map);
 
-protected:
 	virtual void machine_start() override { m_leds.resolve(); }
 
 	required_device<cpu_device> m_maincpu;
@@ -210,3 +220,5 @@ protected:
 #endif
 	output_finder<2> m_leds;
 };
+
+#endif // MAME_INCLUDES_SUNA8_H

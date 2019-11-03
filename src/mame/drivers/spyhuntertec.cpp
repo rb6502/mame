@@ -25,14 +25,15 @@ sound system appears to be the same as 'spartanxtec.cpp'
 #include "emupal.h"
 #include "screen.h"
 #include "speaker.h"
+#include "tilemap.h"
 
 #include "spyhunttec.lh"
 
 class spyhuntertec_state : public driver_device
 {
 public:
-	spyhuntertec_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	spyhuntertec_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
 		m_audiocpu(*this, "audiocpu"),
 		m_analog_timer(*this, "analog_timer"),
@@ -48,7 +49,11 @@ public:
 		m_soundlatch(*this, "soundlatch")
 	{ }
 
+	void spyhuntertec(machine_config &config);
 
+	void init_spyhuntertec();
+
+private:
 	required_device<cpu_device> m_maincpu;
 	required_device<cpu_device> m_audiocpu;
 	required_device<timer_device> m_analog_timer;
@@ -69,8 +74,6 @@ public:
 	void draw_sprites(bitmap_ind16 &bitmap, const rectangle &cliprect);
 	uint32_t screen_update_spyhuntertec(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 
-
-
 	uint8_t m_spyhunt_sprite_color_mask;
 	int16_t m_spyhunt_scroll_offset;
 	int16_t m_spyhunt_scrollx;
@@ -81,8 +84,8 @@ public:
 	tilemap_t *m_alpha_tilemap;
 	tilemap_t *m_bg_tilemap;
 	DECLARE_WRITE8_MEMBER(spyhuntertec_paletteram_w);
-	void init_spyhuntertec();
-//  DECLARE_VIDEO_START(spyhuntertec);
+
+	//  DECLARE_VIDEO_START(spyhuntertec);
 //  uint32_t screen_update_spyhuntertec(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	DECLARE_WRITE8_MEMBER(spyhuntertec_port04_w);
 	DECLARE_WRITE8_MEMBER(spyhuntertec_portf0_w);
@@ -112,7 +115,6 @@ public:
 
 	uint8_t m_analog_select;
 	uint8_t m_analog_count;
-	void spyhuntertec(machine_config &config);
 	void spyhuntertec_map(address_map &map);
 	void spyhuntertec_portmap(address_map &map);
 	void spyhuntertec_sound_map(address_map &map);
@@ -240,10 +242,10 @@ TILE_GET_INFO_MEMBER(spyhuntertec_state::spyhunt_get_alpha_tile_info)
 void spyhuntertec_state::video_start()
 {
 	/* initialize the background tilemap */
-	m_bg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(spyhuntertec_state::spyhunt_get_bg_tile_info),this), tilemap_mapper_delegate(FUNC(spyhuntertec_state::spyhunt_bg_scan),this),  64,16, 64,32);
+	m_bg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(spyhuntertec_state::spyhunt_get_bg_tile_info)), tilemap_mapper_delegate(*this, FUNC(spyhuntertec_state::spyhunt_bg_scan)),  64,16, 64,32);
 
 	/* initialize the text tilemap */
-	m_alpha_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(spyhuntertec_state::spyhunt_get_alpha_tile_info),this), TILEMAP_SCAN_COLS,  16,8, 32,32);
+	m_alpha_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(spyhuntertec_state::spyhunt_get_alpha_tile_info)), TILEMAP_SCAN_COLS,  16,8, 32,32);
 	m_alpha_tilemap->set_transparent_pen(0);
 	m_alpha_tilemap->set_scrollx(0, 16);
 
@@ -435,7 +437,7 @@ void spyhuntertec_state::spyhuntertec_map(address_map &map)
 
 	map(0xe000, 0xe7ff).ram().w(FUNC(spyhuntertec_state::spyhunt_videoram_w)).share("videoram");
 	map(0xe800, 0xebff).mirror(0x0400).ram().w(FUNC(spyhuntertec_state::spyhunt_alpharam_w)).share("spyhunt_alpha");
-	map(0xf000, 0xf7ff).ram(); //AM_SHARE("nvram")
+	map(0xf000, 0xf7ff).ram(); //.share("nvram");
 	map(0xf800, 0xf9ff).ram().share("spriteram"); // origional spriteram
 	map(0xfa00, 0xfa7f).mirror(0x0180).ram().w(FUNC(spyhuntertec_state::spyhuntertec_paletteram_w)).share("paletteram");
 
@@ -466,7 +468,7 @@ void spyhuntertec_state::spyhuntertec_portmap(address_map &map)
 	map(0x04, 0x04).w(FUNC(spyhuntertec_state::spyhuntertec_port04_w));
 	map(0x84, 0x86).w(FUNC(spyhuntertec_state::spyhunt_scroll_value_w));
 	map(0xe0, 0xe0).nopw(); // was watchdog
-//  AM_RANGE(0xe8, 0xe8) AM_WRITENOP
+//  map(0xe8, 0xe8).nopw();
 	map(0xf0, 0xf0).w(FUNC(spyhuntertec_state::spyhuntertec_portf0_w));
 }
 
@@ -667,59 +669,54 @@ void spyhuntertec_state::machine_reset()
 
 
 
-MACHINE_CONFIG_START(spyhuntertec_state::spyhuntertec)
-
+void spyhuntertec_state::spyhuntertec(machine_config &config)
+{
 // note: no ctc, no nvram
 // 2*z80, 3*ay8912
 // 2 XTALs: one 20MHz, other one near maincpu ?MHz
 
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", Z80, 4000000 ) // NEC D780C-2 (rated 6MHz)
-	MCFG_DEVICE_PROGRAM_MAP(spyhuntertec_map)
-	MCFG_DEVICE_IO_MAP(spyhuntertec_portmap)
-	MCFG_DEVICE_VBLANK_INT_DRIVER("screen", spyhuntertec_state, irq0_line_hold)
-	MCFG_TIMER_DRIVER_ADD("analog_timer", spyhuntertec_state, analog_count_callback)
+	Z80(config, m_maincpu, 4000000); // NEC D780C-2 (rated 6MHz)
+	m_maincpu->set_addrmap(AS_PROGRAM, &spyhuntertec_state::spyhuntertec_map);
+	m_maincpu->set_addrmap(AS_IO, &spyhuntertec_state::spyhuntertec_portmap);
+	m_maincpu->set_vblank_int("screen", FUNC(spyhuntertec_state::irq0_line_hold));
+	TIMER(config, m_analog_timer).configure_generic(FUNC(spyhuntertec_state::analog_count_callback));
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_VIDEO_ATTRIBUTES(VIDEO_UPDATE_BEFORE_VBLANK)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(2500) /* not accurate */)
-	MCFG_SCREEN_SIZE(30*16, 30*8)
-	MCFG_SCREEN_VISIBLE_AREA(0, 30*16-1, 0, 30*8-1)
-	MCFG_SCREEN_UPDATE_DRIVER(spyhuntertec_state, screen_update_spyhuntertec)
-	MCFG_SCREEN_PALETTE("palette")
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_video_attributes(VIDEO_UPDATE_BEFORE_VBLANK);
+	m_screen->set_refresh_hz(60);
+	m_screen->set_vblank_time(ATTOSECONDS_IN_USEC(2500) /* not accurate */);
+	m_screen->set_size(30*16, 30*8);
+	m_screen->set_visarea(0, 30*16-1, 0, 30*8-1);
+	m_screen->set_screen_update(FUNC(spyhuntertec_state::screen_update_spyhuntertec));
+	m_screen->set_palette(m_palette);
 
-	MCFG_DEVICE_ADD("gfxdecode", GFXDECODE, "palette", gfx_spyhuntertec)
-	MCFG_PALETTE_ADD("palette", 64+4)
+	GFXDECODE(config, m_gfxdecode, m_palette, gfx_spyhuntertec);
+	PALETTE(config, m_palette).set_entries(64+4); // FUNC(spyhuntertec_state::spyhunt)
 
-//  MCFG_PALETTE_INIT_OWNER(spyhuntertec_state,spyhunt)
-
-
-	MCFG_DEVICE_ADD("audiocpu", Z80, 4000000 ) // SGS Z8400B1 (rated 2.5MHz?)
-	MCFG_DEVICE_PROGRAM_MAP(spyhuntertec_sound_map)
-	MCFG_DEVICE_IO_MAP(spyhuntertec_sound_portmap)
-	MCFG_DEVICE_PERIODIC_INT_DRIVER(spyhuntertec_state, irq0_line_assert, 1000)
+	Z80(config, m_audiocpu, 4000000); // SGS Z8400B1 (rated 2.5MHz?)
+	m_audiocpu->set_addrmap(AS_PROGRAM, &spyhuntertec_state::spyhuntertec_sound_map);
+	m_audiocpu->set_addrmap(AS_IO, &spyhuntertec_state::spyhuntertec_sound_portmap);
+	m_audiocpu->set_periodic_int(FUNC(spyhuntertec_state::irq0_line_assert), attotime::from_hz(1000));
 
 	SPEAKER(config, "mono").front_center();
 
-	MCFG_GENERIC_LATCH_8_ADD("soundlatch")
-	MCFG_GENERIC_LATCH_DATA_PENDING_CB(INPUTLINE("audiocpu", INPUT_LINE_NMI))
+	GENERIC_LATCH_8(config, m_soundlatch);
+	m_soundlatch->data_pending_callback().set_inputline(m_audiocpu, INPUT_LINE_NMI);
 
-	MCFG_DEVICE_ADD("ay1", AY8912, 3000000/2) // AY-3-8912
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 0.25)
-	MCFG_AY8910_PORT_A_READ_CB(READ8(*this, spyhuntertec_state, ay1_porta_r))
-	MCFG_AY8910_PORT_A_WRITE_CB(WRITE8(*this, spyhuntertec_state, ay1_porta_w))
+	ay8912_device &ay1(AY8912(config, "ay1", 3000000/2)); // AY-3-8912
+	ay1.add_route(ALL_OUTPUTS, "mono", 0.25);
+	ay1.port_a_read_callback().set(FUNC(spyhuntertec_state::ay1_porta_r));
+	ay1.port_a_write_callback().set(FUNC(spyhuntertec_state::ay1_porta_w));
 
-	MCFG_DEVICE_ADD("ay2", AY8912, 3000000/2) // "
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 0.25)
-	MCFG_AY8910_PORT_A_READ_CB(READ8(*this, spyhuntertec_state, ay2_porta_r))
-	MCFG_AY8910_PORT_A_WRITE_CB(WRITE8(*this, spyhuntertec_state, ay2_porta_w))
+	ay8912_device &ay2(AY8912(config, "ay2", 3000000/2)); // "
+	ay2.add_route(ALL_OUTPUTS, "mono", 0.25);
+	ay2.port_a_read_callback().set(FUNC(spyhuntertec_state::ay2_porta_r));
+	ay2.port_a_write_callback().set(FUNC(spyhuntertec_state::ay2_porta_w));
 
-	MCFG_DEVICE_ADD("ay3", AY8912, 3000000/2) // "
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 0.25)
-
-MACHINE_CONFIG_END
+	AY8912(config, "ay3", 3000000/2).add_route(ALL_OUTPUTS, "mono", 0.25); // "
+}
 
 
 

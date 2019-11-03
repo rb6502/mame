@@ -15,19 +15,20 @@ class acd_state : public driver_device
 public:
 	acd_state(const machine_config &mconfig, device_type type, const char *tag)
 		: driver_device(mconfig, type, tag)
-//      , m_maincpu(*this, "maincpu")
+		//      , m_maincpu(*this, "maincpu")
 	{ }
 
-void acd(machine_config &config);
+	void acd(machine_config &config);
 private:
-//  required_device<cpu_device> m_maincpu;
+	//  required_device<cpu_device> m_maincpu;
 };
 
 static INPUT_PORTS_START( acd )
 INPUT_PORTS_END
 
-MACHINE_CONFIG_START(acd_state::acd)
-MACHINE_CONFIG_END
+void acd_state::acd(machine_config &config)
+{
+}
 
 ROM_START( acd )
 	ROM_REGION( 0x10000, "maincpu", 0 )

@@ -55,14 +55,16 @@ public:
 	{ }
 
 	void speeddrv(machine_config &config);
+
+	void init_speeddrv();
+
+private:
 	void speeddrv_io(address_map &map);
 	void speeddrv_map(address_map &map);
-protected:
 
 	// devices
 	required_device<cpu_device> m_maincpu;
 public:
-	void init_speeddrv();
 };
 
 void speeddrv_state::speeddrv_map(address_map &map)
@@ -80,12 +82,13 @@ INPUT_PORTS_END
 
 
 
-MACHINE_CONFIG_START(speeddrv_state::speeddrv)
+void speeddrv_state::speeddrv(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", I486, 40000000 ) // ?? at least a pentium
-	MCFG_DEVICE_PROGRAM_MAP(speeddrv_map)
-	MCFG_DEVICE_IO_MAP(speeddrv_io)
-MACHINE_CONFIG_END
+	I486(config, m_maincpu, 40000000); // ?? at least a pentium
+	m_maincpu->set_addrmap(AS_PROGRAM, &speeddrv_state::speeddrv_map);
+	m_maincpu->set_addrmap(AS_IO, &speeddrv_state::speeddrv_io);
+}
 
 
 ROM_START( speeddrv )

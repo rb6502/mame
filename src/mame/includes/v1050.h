@@ -5,12 +5,11 @@
 
 #pragma once
 
-#pragma once
-
 #include "cpu/z80/z80.h"
 #include "cpu/m6502/m6502.h"
 #include "bus/centronics/ctronics.h"
 #include "bus/scsi/s1410.h"
+#include "imagedev/floppy.h"
 #include "machine/clock.h"
 #include "machine/i8214.h"
 #include "machine/i8251.h"
@@ -64,8 +63,8 @@
 class v1050_state : public driver_device
 {
 public:
-	v1050_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	v1050_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_maincpu(*this, Z80_TAG),
 		m_subcpu(*this, M6502_TAG),
 		m_pic(*this, UPB8214_TAG),
@@ -100,6 +99,10 @@ public:
 	{
 	}
 
+	void v1050(machine_config &config);
+	void v1050_video(machine_config &config);
+
+private:
 	DECLARE_READ8_MEMBER( kb_data_r );
 	DECLARE_READ8_MEMBER( kb_status_r );
 	DECLARE_WRITE8_MEMBER( v1050_i8214_w );
@@ -153,18 +156,15 @@ public:
 
 	MC6845_UPDATE_ROW(crtc_update_row);
 
-	void v1050(machine_config &config);
-	void v1050_video(machine_config &config);
 	void v1050_crt_mem(address_map &map);
 	void v1050_io(address_map &map);
 	void v1050_mem(address_map &map);
-protected:
+
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 
 	virtual void video_start() override;
 
-private:
 	void bankswitch();
 	void update_fdc();
 	void set_interrupt(int line, int state);

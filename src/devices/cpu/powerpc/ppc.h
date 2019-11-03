@@ -164,10 +164,6 @@ enum
     PUBLIC FUNCTIONS
 ***************************************************************************/
 
-#define MCFG_PPC_BUS_FREQUENCY(_frequency) \
-	downcast<ppc_device &>(*device).set_bus_frequency(_frequency);
-
-
 class ppc_device : public cpu_device, public device_vtlb_interface
 {
 protected:
@@ -212,6 +208,7 @@ protected:
 public:
 	virtual ~ppc_device() override;
 
+	void set_cache_dirty() { m_cache_dirty = true; }
 	void set_bus_frequency(uint32_t bus_frequency) { c_bus_frequency = bus_frequency; }
 	void set_bus_frequency(const XTAL &xtal) { set_bus_frequency(xtal.value()); }
 
@@ -231,6 +228,7 @@ public:
 	void ppc_cfunc_printf_debug();
 	void ppc_cfunc_printf_probe();
 	void ppc_cfunc_unimplemented();
+	void ppc_cfunc_ppccom_mismatch();
 	void ppccom_tlb_fill();
 	void ppccom_update_fprf();
 	void ppccom_dcstore_callback();
@@ -471,6 +469,8 @@ protected:
 	/* PowerPC 4XX-specific serial port state */
 	struct ppc4xx_spu_state
 	{
+		ppc4xx_spu_state(device_t &owner) : tx_cb(owner) { }
+
 		uint8_t           regs[9];
 		uint8_t           txbuf;
 		uint8_t           rxbuf;
@@ -504,8 +504,8 @@ protected:
 
 	write32_delegate m_dcstore_cb;
 
-	read32_delegate m_ext_dma_read_cb[4];
-	write32_delegate m_ext_dma_write_cb[4];
+	read32_delegate::array<4> m_ext_dma_read_cb;
+	write32_delegate::array<4> m_ext_dma_write_cb;
 
 	/* PowerPC function pointers for memory accesses/exceptions */
 #ifdef PPC_H_INCLUDED_FROM_PPC_C

@@ -28,8 +28,8 @@
 class jr200_state : public driver_device
 {
 public:
-	jr200_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	jr200_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_vram(*this, "vram"),
 		m_cram(*this, "cram"),
 		m_mn1271_ram(*this, "mn1271_ram"),
@@ -49,8 +49,12 @@ public:
 		m_row8(*this, "ROW8"),
 		m_row9(*this, "ROW9"),
 		m_gfxdecode(*this, "gfxdecode"),
-		m_palette(*this, "palette")  { }
+		m_palette(*this, "palette")
+	{ }
 
+	void jr200(machine_config &config);
+
+private:
 	required_shared_ptr<uint8_t> m_vram;
 	required_shared_ptr<uint8_t> m_cram;
 	required_shared_ptr<uint8_t> m_mn1271_ram;
@@ -76,9 +80,8 @@ public:
 	uint32_t screen_update_jr200(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	TIMER_CALLBACK_MEMBER(timer_d_callback);
 
-	void jr200(machine_config &config);
 	void jr200_mem(address_map &map);
-protected:
+
 	required_device<cpu_device> m_maincpu;
 	required_device<beep_device> m_beeper;
 	required_memory_region m_pcg;
@@ -536,32 +539,32 @@ void jr200_state::machine_reset()
 }
 
 
-MACHINE_CONFIG_START(jr200_state::jr200)
+void jr200_state::jr200(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", M6802, XTAL(14'318'181) / 4) /* MN1800A, ? Mhz assumption that it is same as JR-100*/
-	MCFG_DEVICE_PROGRAM_MAP(jr200_mem)
+	M6802(config, m_maincpu, XTAL(14'318'181) / 4); /* MN1800A, ? MHz assumption that it is same as JR-100*/
+	m_maincpu->set_addrmap(AS_PROGRAM, &jr200_state::jr200_mem);
 
-//  MCFG_DEVICE_ADD("mn1544", MN1544, ?)
+//  MN1544(config, "mn1544", ?);
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(2500)) /* not accurate */
-	MCFG_SCREEN_SIZE(16 + 256 + 16, 16 + 192 + 16) /* border size not accurate */
-	MCFG_SCREEN_VISIBLE_AREA(0, 16 + 256 + 16 - 1, 0, 16 + 192 + 16 - 1)
-	MCFG_SCREEN_UPDATE_DRIVER(jr200_state, screen_update_jr200)
-	MCFG_SCREEN_PALETTE("palette")
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(2500)); /* not accurate */
+	screen.set_size(16 + 256 + 16, 16 + 192 + 16); /* border size not accurate */
+	screen.set_visarea(0, 16 + 256 + 16 - 1, 0, 16 + 192 + 16 - 1);
+	screen.set_screen_update(FUNC(jr200_state::screen_update_jr200));
+	screen.set_palette(m_palette);
 
-	MCFG_DEVICE_ADD("gfxdecode", GFXDECODE, "palette", gfx_jr200)
-	MCFG_PALETTE_ADD_3BIT_BRG("palette")
+	GFXDECODE(config, m_gfxdecode, m_palette, gfx_jr200);
+	PALETTE(config, m_palette, palette_device::BRG_3BIT);
 
 	SPEAKER(config, "mono").front_center();
 
 	// AY-8910 ?
 
-	MCFG_DEVICE_ADD("beeper", BEEP, 0)
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS,"mono",0.50)
-MACHINE_CONFIG_END
+	BEEP(config, m_beeper, 0).add_route(ALL_OUTPUTS,"mono",0.50);
+}
 
 
 

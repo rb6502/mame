@@ -13,6 +13,7 @@
 #include "bus/centronics/ctronics.h"
 #include "bus/generic/slot.h"
 #include "bus/generic/carts.h"
+#include "imagedev/floppy.h"
 #include "machine/mc68901.h"
 #include "machine/ram.h"
 #include "machine/rescap.h"
@@ -94,6 +95,7 @@ public:
 			m_cart(*this, "cartslot"),
 			m_ram(*this, RAM_TAG),
 			m_rs232(*this, RS232_TAG),
+			m_ymsnd(*this, YM2149_TAG),
 			m_p31(*this, "P31"),
 			m_p32(*this, "P32"),
 			m_p33(*this, "P33"),
@@ -114,8 +116,6 @@ public:
 			m_mousex(*this, "IKBD_MOUSEX"),
 			m_mousey(*this, "IKBD_MOUSEY"),
 			m_config(*this, "config"),
-			m_acia_ikbd_irq(1),
-			m_acia_midi_irq(1),
 			m_ikbd_mouse_x(0),
 			m_ikbd_mouse_y(0),
 			m_ikbd_mouse_px(IKBD_MOUSE_PHASE_STATIC),
@@ -128,7 +128,7 @@ public:
 			m_led(*this, "led1")
 	{ }
 
-	required_device<cpu_device> m_maincpu;
+	required_device<m68000_base_device> m_maincpu;
 	required_device<wd1772_device> m_fdc;
 	required_device_array<floppy_connector, 2> m_floppy;
 	required_device<mc68901_device> m_mfp;
@@ -138,6 +138,7 @@ public:
 	required_device<generic_slot_device> m_cart;
 	required_device<ram_device> m_ram;
 	required_device<rs232_port_device> m_rs232;
+	required_device<ym2149_device> m_ymsnd;
 	required_ioport m_p31;
 	required_ioport m_p32;
 	required_ioport m_p33;
@@ -236,8 +237,6 @@ public:
 	DECLARE_WRITE8_MEMBER( psg_pa_w );
 
 	DECLARE_WRITE_LINE_MEMBER( ikbd_tx_w );
-	DECLARE_WRITE_LINE_MEMBER( acia_ikbd_irq_w );
-	DECLARE_WRITE_LINE_MEMBER( acia_midi_irq_w );
 
 	DECLARE_READ8_MEMBER( mfp_gpio_r );
 	DECLARE_WRITE_LINE_MEMBER( mfp_tdo_w );
@@ -256,8 +255,6 @@ public:
 	uint8_t m_mmu;
 
 	/* keyboard state */
-	int m_acia_ikbd_irq;
-	int m_acia_midi_irq;
 	uint16_t m_ikbd_keylatch;
 	uint8_t m_ikbd_mouse;
 	uint8_t m_ikbd_mouse_x;
@@ -329,18 +326,20 @@ public:
 	bitmap_rgb32 m_bitmap;
 
 	DECLARE_FLOPPY_FORMATS(floppy_formats);
-	IRQ_CALLBACK_MEMBER(atarist_int_ack);
 
 	int m_monochrome;
 	required_device<palette_device> m_palette;
 	required_device<screen_device> m_screen;
 	DECLARE_WRITE_LINE_MEMBER( write_monochrome );
 
+	void common(machine_config &config);
 	void st(machine_config &config);
-	void ikbd_io_map(address_map &map);
 	void ikbd_map(address_map &map);
+	void cpu_space_map(address_map &map);
 	void st_map(address_map &map);
 protected:
+	void keyboard(machine_config &config);
+
 	virtual void device_timer(emu_timer &timer, device_timer_id id, int param, void *ptr) override;
 	virtual void machine_start() override;
 	virtual void video_start() override;

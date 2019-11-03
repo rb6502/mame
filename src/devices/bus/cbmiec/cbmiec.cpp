@@ -223,7 +223,7 @@ DEFINE_DEVICE_TYPE(CBM_IEC_SLOT, cbm_iec_slot_device, "cbm_iec_slot", "CBM IEC s
 //-------------------------------------------------
 
 device_cbm_iec_interface::device_cbm_iec_interface(const machine_config &mconfig, device_t &device)
-	: device_slot_card_interface(mconfig, device), m_next(nullptr), m_bus(nullptr), m_slot(nullptr)
+	: device_interface(device, "cbmiec"), m_next(nullptr), m_bus(nullptr), m_slot(nullptr)
 {
 }
 
@@ -273,7 +273,13 @@ void cbm_iec_slot_device::device_start()
 	if (dev) bus->add_device(this, get_card_device());
 }
 
-
+void cbm_iec_slot_device::add_slot(machine_config &config, const char *_tag, int _address, const char *_def_slot)
+{
+	cbm_iec_slot_device &slot(CBM_IEC_SLOT(config, _tag, 0));
+	cbm_iec_devices(slot);
+	slot.set_default_option(_def_slot);
+	slot.set_address(_address);
+}
 
 //**************************************************************************
 //  LIVE DEVICE
@@ -319,8 +325,8 @@ void cbm_iec_device::device_start()
 
 void cbm_iec_device::device_reset()
 {
-	reset_w(0);
-	reset_w(1);
+	host_reset_w(0);
+	host_reset_w(1);
 }
 
 
@@ -524,4 +530,11 @@ void cbm_iec_devices(device_slot_interface &device)
 	device.option_add("vic1515", VIC1515);
 	device.option_add("vic1520", VIC1520);
 	device.option_add("c1526", C1526);
+	device.option_add("technica", TECHNICA);
+	device.option_add("bluechip", BLUE_CHIP);
+	device.option_add("cmdrc2", COMMANDER_C2);
+	device.option_add("enh2000", ENHANCER_2000);
+	device.option_add("fd148", FD148);
+	device.option_add("msdsd1", MSD_SD1);
+	device.option_add("msdsd2", MSD_SD2);
 }

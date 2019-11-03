@@ -2,7 +2,7 @@
 // copyright-holders:R. Belmont
 /***************************************************************************
 
-    invqix.c
+    invqix.cpp
 
 Space Invaders / Qix Silver Anniversary Edition
 Taito/Namco America inc.
@@ -136,6 +136,9 @@ public:
 		m_vram(*this, "vram")
 	{ }
 
+	void invqix(machine_config &config);
+
+private:
 	uint32_t screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 
 	DECLARE_READ16_MEMBER(port3_r);
@@ -149,10 +152,9 @@ public:
 
 	DECLARE_WRITE16_MEMBER(vctl_w);
 
-	void invqix(machine_config &config);
 	void invqix_io_map(address_map &map);
 	void invqix_prg_map(address_map &map);
-protected:
+
 	// devices
 	required_device<cpu_device> m_maincpu;
 	required_device<eeprom_serial_93cxx_device> m_eeprom;
@@ -161,7 +163,6 @@ protected:
 	// driver_device overrides
 	virtual void video_start() override;
 
-private:
 	uint16_t m_vctl;      // 0000 for normal, 0001 for flip, 0100 when going to change (blank?)
 };
 
@@ -333,32 +334,32 @@ static INPUT_PORTS_START( invqix )
 	PORT_BIT( 0x80, IP_ACTIVE_LOW,  IPT_UNUSED )
 INPUT_PORTS_END
 
-MACHINE_CONFIG_START(invqix_state::invqix)
-	MCFG_DEVICE_ADD("maincpu", H8S2394, XTAL(20'000'000))
-	MCFG_DEVICE_PROGRAM_MAP(invqix_prg_map)
-	MCFG_DEVICE_IO_MAP(invqix_io_map)
-	MCFG_DEVICE_VBLANK_INT_DRIVER("screen", invqix_state,  irq1_line_hold)
-	MCFG_DEVICE_PERIODIC_INT_DRIVER(invqix_state, irq0_line_hold,  60)
+void invqix_state::invqix(machine_config &config)
+{
+	H8S2394(config, m_maincpu, XTAL(20'000'000));
+	m_maincpu->set_addrmap(AS_PROGRAM, &invqix_state::invqix_prg_map);
+	m_maincpu->set_addrmap(AS_IO, &invqix_state::invqix_io_map);
+	m_maincpu->set_vblank_int("screen", FUNC(invqix_state::irq1_line_hold));
+	m_maincpu->set_periodic_int(FUNC(invqix_state::irq0_line_hold), attotime::from_hz(60));
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_UPDATE_DRIVER(invqix_state, screen_update)
-	MCFG_SCREEN_SIZE(640, 480)
-	MCFG_SCREEN_VISIBLE_AREA(0, 256, 0, 240)
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_screen_update(FUNC(invqix_state::screen_update));
+	screen.set_size(640, 480);
+	screen.set_visarea(0, 256, 0, 240);
 
-	MCFG_PALETTE_ADD("palette", 65536)
+	PALETTE(config, "palette").set_entries(65536);
 
 	SPEAKER(config, "lspeaker").front_left();
 	SPEAKER(config, "rspeaker").front_right();
 
-	MCFG_DEVICE_ADD("oki", OKIM9810, XTAL(4'096'000))
-	MCFG_SOUND_ROUTE(0, "lspeaker", 0.80)
-	MCFG_SOUND_ROUTE(1, "rspeaker", 0.80)
+	okim9810_device &oki(OKIM9810(config, "oki", XTAL(4'096'000)));
+	oki.add_route(0, "lspeaker", 0.80);
+	oki.add_route(1, "rspeaker", 0.80);
 
-	MCFG_DEVICE_ADD("eeprom", EEPROM_SERIAL_93C46_16BIT)
-	MCFG_EEPROM_DEFAULT_VALUE(0)
-MACHINE_CONFIG_END
+	EEPROM_93C46_16BIT(config, "eeprom").default_value(0);
+}
 
 ROM_START( invqix )
 	ROM_REGION(0x200000, "program", 0)

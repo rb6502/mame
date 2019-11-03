@@ -1,5 +1,7 @@
 // license:BSD-3-Clause
 // copyright-holders:Pierpaolo Prazzoli
+
+#include "sound/sn76496.h"
 #include "video/ppu2c0x.h"
 
 class vsnes_state : public driver_device
@@ -11,16 +13,45 @@ public:
 		, m_subcpu(*this, "sub")
 		, m_ppu1(*this, "ppu1")
 		, m_ppu2(*this, "ppu2")
+		, m_sn1(*this, "sn1")
+		, m_sn2(*this, "sn2")
 		, m_work_ram(*this, "work_ram")
 		, m_work_ram_1(*this, "work_ram_1")
 		, m_gfx1_rom(*this, "gfx1")
 	{
 	}
 
+	void vsdual(machine_config &config);
+	void vsgshoe(machine_config &config);
+	void vsnes(machine_config &config);
+	void vsdual_pi(machine_config &config);
+	void topgun(machine_config &config);
+	void mightybj(machine_config &config);
+	void vsnes_bootleg(machine_config &config);
+	void jajamaru(machine_config &config);
+
+	void init_vskonami();
+	void init_vsvram();
+	void init_bnglngby();
+	void init_drmario();
+	void init_MMC3();
+	void init_vsfdf();
+	void init_tkoboxng();
+	void init_vsgun();
+	void init_supxevs();
+	void init_vsgshoe();
+	void init_vsnormal();
+	void init_platoon();
+	void init_rbibb();
+	void init_vsdual();
+
+private:
 	required_device<cpu_device> m_maincpu;
 	optional_device<cpu_device> m_subcpu;
 	required_device<ppu2c0x_device> m_ppu1;
 	optional_device<ppu2c0x_device> m_ppu2;
+	optional_device<sn76489_device> m_sn1;
+	optional_device<sn76489_device> m_sn2;
 
 	required_shared_ptr<uint8_t> m_work_ram;
 	optional_shared_ptr<uint8_t> m_work_ram_1;
@@ -61,22 +92,9 @@ public:
 	DECLARE_READ8_MEMBER(set_bnglngby_irq_r);
 	DECLARE_WRITE8_MEMBER(vsdual_vrom_banking_main);
 	DECLARE_WRITE8_MEMBER(vsdual_vrom_banking_sub);
+	DECLARE_WRITE8_MEMBER(vssmbbl_sn_w);
 	void v_set_mirroring(int ppu, int mirroring);
 
-	void init_vskonami();
-	void init_vsvram();
-	void init_bnglngby();
-	void init_drmario();
-	void init_MMC3();
-	void init_vsfdf();
-	void init_tkoboxng();
-	void init_vsgun();
-	void init_supxevs();
-	void init_vsgshoe();
-	void init_vsnormal();
-	void init_platoon();
-	void init_rbibb();
-	void init_vsdual();
 	DECLARE_MACHINE_START(vsnes);
 	DECLARE_MACHINE_RESET(vsnes);
 	DECLARE_MACHINE_START(vsdual);
@@ -91,19 +109,11 @@ public:
 	DECLARE_READ8_MEMBER(vsnes_bootleg_z80_data_r);
 	DECLARE_READ8_MEMBER(vsnes_bootleg_z80_address_r);
 
-	void vsdual(machine_config &config);
-	void vsgshoe(machine_config &config);
-	void vsnes(machine_config &config);
-	void vsdual_pi(machine_config &config);
-	void topgun(machine_config &config);
-	void mightybj(machine_config &config);
-	void vsnes_bootleg(machine_config &config);
-	void jajamaru(machine_config &config);
 	void vsnes_bootleg_z80_map(address_map &map);
 	void vsnes_cpu1_bootleg_map(address_map &map);
 	void vsnes_cpu1_map(address_map &map);
 	void vsnes_cpu2_map(address_map &map);
-private:
+
 	int m_coin;
 	int m_do_vrom_bank;
 	int m_input_latch[4];

@@ -46,9 +46,12 @@ device_execute_interface::device_execute_interface(const machine_config &mconfig
 	: device_interface(device, "execute")
 	, m_scheduler(nullptr)
 	, m_disabled(false)
+	, m_vblank_interrupt(device)
 	, m_vblank_interrupt_screen(nullptr)
+	, m_timed_interrupt(device)
 	, m_timed_interrupt_period(attotime::zero)
 	, m_nextexec(nullptr)
+	, m_driver_irq(device)
 	, m_timedint_timer(nullptr)
 	, m_profiler(PROFILER_IDLE)
 	, m_icountptr(nullptr)
@@ -351,7 +354,7 @@ void device_execute_interface::interface_validity_check(validity_checker &valid)
 		if (iter.first() == nullptr)
 			osd_printf_error("VBLANK interrupt specified, but the driver is screenless\n");
 		else if (m_vblank_interrupt_screen != nullptr && device().siblingdevice(m_vblank_interrupt_screen) == nullptr)
-			osd_printf_error("VBLANK interrupt references a non-existant screen tag '%s'\n", m_vblank_interrupt_screen);
+			osd_printf_error("VBLANK interrupt references a nonexistent screen tag '%s'\n", m_vblank_interrupt_screen);
 	}
 
 	if (!m_timed_interrupt.isnull() && m_timed_interrupt_period == attotime::zero)
@@ -371,9 +374,9 @@ void device_execute_interface::interface_pre_start()
 	m_scheduler = &device().machine().scheduler();
 
 	// bind delegates
-	m_vblank_interrupt.bind_relative_to(*device().owner());
-	m_timed_interrupt.bind_relative_to(*device().owner());
-	m_driver_irq.bind_relative_to(*device().owner());
+	m_vblank_interrupt.resolve();
+	m_timed_interrupt.resolve();
+	m_driver_irq.resolve();
 
 	// fill in the initial states
 	int const index = device_iterator(device().machine().root_device()).indexof(*this);
@@ -522,7 +525,9 @@ int device_execute_interface::standard_irq_callback(int irqline)
 		vector = m_driver_irq(device(), irqline);
 
 	// notify the debugger
-	debugger_interrupt_hook(irqline);
+	if (device().machine().debug_flags & DEBUG_FLAG_ENABLED)
+		device().debug()->interrupt_hook(irqline);
+
 	return vector;
 }
 

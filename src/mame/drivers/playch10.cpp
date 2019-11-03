@@ -294,7 +294,6 @@ Notes & Todo:
 #include "emu.h"
 #include "includes/playch10.h"
 
-#include "cpu/m6502/n2a03.h"
 #include "cpu/z80/z80.h"
 #include "machine/74259.h"
 #include "machine/rp5h01.h"
@@ -389,7 +388,7 @@ static INPUT_PORTS_START( playch10 )
 	PORT_BIT( 0x01, IP_ACTIVE_HIGH, IPT_SERVICE ) PORT_NAME("Channel Select") PORT_CODE(KEYCODE_0)
 	PORT_BIT( 0x02, IP_ACTIVE_HIGH, IPT_SERVICE ) PORT_NAME("Enter") PORT_CODE(KEYCODE_MINUS)
 	PORT_BIT( 0x04, IP_ACTIVE_HIGH, IPT_SERVICE ) PORT_NAME("Reset") PORT_CODE(KEYCODE_EQUALS)
-	PORT_BIT( 0x08, IP_ACTIVE_HIGH, IPT_CUSTOM ) PORT_CUSTOM_MEMBER(DEVICE_SELF, playch10_state,pc10_int_detect_r, nullptr)   // INT Detect
+	PORT_BIT( 0x08, IP_ACTIVE_HIGH, IPT_CUSTOM ) PORT_READ_LINE_MEMBER(playch10_state, int_detect_r)   // INT Detect
 	PORT_BIT( 0x10, IP_ACTIVE_HIGH, IPT_UNUSED )
 	PORT_BIT( 0x20, IP_ACTIVE_HIGH, IPT_COIN2 )
 	PORT_BIT( 0x40, IP_ACTIVE_HIGH, IPT_SERVICE1 )
@@ -644,70 +643,73 @@ WRITE_LINE_MEMBER(playch10_state::vblank_irq)
 	}
 }
 
-MACHINE_CONFIG_START(playch10_state::playch10)
+void playch10_state::playch10(machine_config &config)
+{
 	// basic machine hardware
-	MCFG_DEVICE_ADD("maincpu", Z80, 8000000/2) // 4 MHz
-	MCFG_DEVICE_PROGRAM_MAP(bios_map)
-	MCFG_DEVICE_IO_MAP(bios_io_map)
+	Z80(config, m_maincpu, 8000000/2); // 4 MHz
+	m_maincpu->set_addrmap(AS_PROGRAM, &playch10_state::bios_map);
+	m_maincpu->set_addrmap(AS_IO, &playch10_state::bios_io_map);
 
-	MCFG_DEVICE_ADD("cart", N2A03, NTSC_APU_CLOCK)
-	MCFG_DEVICE_PROGRAM_MAP(cart_map)
+	N2A03(config, m_cartcpu, NTSC_APU_CLOCK);
+	m_cartcpu->set_addrmap(AS_PROGRAM, &playch10_state::cart_map);
 
-	MCFG_DEVICE_ADD("outlatch1", LS259, 0) // 7D
-	MCFG_ADDRESSABLE_LATCH_Q0_OUT_CB(WRITELINE(*this, playch10_state, sdcs_w))
-	MCFG_ADDRESSABLE_LATCH_Q1_OUT_CB(WRITELINE(*this, playch10_state, cntrl_mask_w))
-	MCFG_ADDRESSABLE_LATCH_Q2_OUT_CB(WRITELINE(*this, playch10_state, disp_mask_w))
-	MCFG_ADDRESSABLE_LATCH_Q3_OUT_CB(WRITELINE(*this, playch10_state, sound_mask_w))
-	MCFG_ADDRESSABLE_LATCH_Q4_OUT_CB(INPUTLINE("cart", INPUT_LINE_RESET)) MCFG_DEVCB_INVERT // GAMERES
-	MCFG_ADDRESSABLE_LATCH_Q5_OUT_CB(INPUTLINE("cart", INPUT_LINE_HALT)) MCFG_DEVCB_INVERT // GAMESTOP
+	ls259_device &outlatch1(LS259(config, "outlatch1")); // 7D
+	outlatch1.q_out_cb<0>().set(FUNC(playch10_state::sdcs_w));
+	outlatch1.q_out_cb<1>().set(FUNC(playch10_state::cntrl_mask_w));
+	outlatch1.q_out_cb<2>().set(FUNC(playch10_state::disp_mask_w));
+	outlatch1.q_out_cb<3>().set(FUNC(playch10_state::sound_mask_w));
+	outlatch1.q_out_cb<4>().set_inputline(m_cartcpu, INPUT_LINE_RESET).invert(); // GAMERES
+	outlatch1.q_out_cb<5>().set_inputline(m_cartcpu, INPUT_LINE_HALT).invert(); // GAMESTOP
 
-	MCFG_DEVICE_ADD("outlatch2", LS259, 0) // 7E
-	MCFG_ADDRESSABLE_LATCH_Q0_OUT_CB(WRITELINE(*this, playch10_state, nmi_enable_w))
-	MCFG_ADDRESSABLE_LATCH_Q1_OUT_CB(WRITELINE(*this, playch10_state, dog_di_w))
-	MCFG_ADDRESSABLE_LATCH_Q2_OUT_CB(WRITELINE(*this, playch10_state, ppu_reset_w))
-	MCFG_ADDRESSABLE_LATCH_Q7_OUT_CB(WRITELINE(*this, playch10_state, up8w_w))
-	MCFG_ADDRESSABLE_LATCH_PARALLEL_OUT_CB(WRITE8(*this, playch10_state, cart_sel_w)) MCFG_DEVCB_MASK(0x78) MCFG_DEVCB_RSHIFT(-3)
+	ls259_device &outlatch2(LS259(config, "outlatch2")); // 7E
+	outlatch2.q_out_cb<0>().set(FUNC(playch10_state::nmi_enable_w));
+	outlatch2.q_out_cb<1>().set(FUNC(playch10_state::dog_di_w));
+	outlatch2.q_out_cb<2>().set(FUNC(playch10_state::ppu_reset_w));
+	outlatch2.q_out_cb<7>().set(FUNC(playch10_state::up8w_w));
+	outlatch2.parallel_out_cb().set(FUNC(playch10_state::cart_sel_w)).rshift(3).mask(0x0f);
 
 	// video hardware
-	MCFG_DEVICE_ADD("gfxdecode", GFXDECODE, "palette", gfx_playch10)
-	MCFG_PALETTE_ADD("palette", 256)
-	MCFG_PALETTE_INIT_OWNER(playch10_state, playch10)
-	MCFG_DEFAULT_LAYOUT(layout_playch10)
+	GFXDECODE(config, m_gfxdecode, "palette", gfx_playch10);
+	PALETTE(config, "palette", FUNC(playch10_state::playch10_palette), 256);
+	config.set_default_layout(layout_playch10);
 
-	MCFG_SCREEN_ADD("top", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_SIZE(32*8, 262)
-	MCFG_SCREEN_VISIBLE_AREA(0*8, 32*8-1, 0*8, 30*8-1)
-	MCFG_SCREEN_UPDATE_DRIVER(playch10_state, screen_update_playch10_top)
-	MCFG_SCREEN_VBLANK_CALLBACK(WRITELINE(*this, playch10_state, vblank_irq))
+	screen_device &bottom(SCREEN(config, "bottom", SCREEN_TYPE_RASTER));
+	bottom.set_refresh_hz(60);
+	bottom.set_size(32*8, 262);
+	bottom.set_visarea(0*8, 32*8-1, 0*8, 30*8-1);
+	bottom.set_screen_update(FUNC(playch10_state::screen_update_playch10_bottom));
 
-	MCFG_SCREEN_ADD("bottom", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_SIZE(32*8, 262)
-	MCFG_SCREEN_VISIBLE_AREA(0*8, 32*8-1, 0*8, 30*8-1)
-	MCFG_SCREEN_UPDATE_DRIVER(playch10_state, screen_update_playch10_bottom)
+	screen_device &top(SCREEN(config, "top", SCREEN_TYPE_RASTER));
+	top.set_refresh_hz(60);
+	top.set_size(32*8, 262);
+	top.set_visarea(0*8, 32*8-1, 0*8, 30*8-1);
+	top.set_screen_update(FUNC(playch10_state::screen_update_playch10_top));
+	top.screen_vblank().set(FUNC(playch10_state::vblank_irq));
 
-	MCFG_PPU2C03B_ADD("ppu")
-	MCFG_PPU2C0X_SET_SCREEN("bottom")
-	MCFG_PPU2C0X_CPU("cart")
-	MCFG_PPU2C0X_INT_CALLBACK(INPUTLINE("cart", INPUT_LINE_NMI))
-	MCFG_DEVCB_CHAIN_OUTPUT(WRITELINE(*this, playch10_state, int_detect_w))
+	PPU_2C03B(config, m_ppu, 0);
+	m_ppu->set_screen("bottom");
+	m_ppu->set_cpu_tag("cart");
+	m_ppu->int_callback().set_inputline(m_cartcpu, INPUT_LINE_NMI);
+	m_ppu->int_callback().append(FUNC(playch10_state::int_detect_w));
 
 	SPEAKER(config, "mono").front_center();
+	m_cartcpu->add_route(ALL_OUTPUTS, "mono", 0.50);
 
-	MCFG_RP5H01_ADD("rp5h01")
-MACHINE_CONFIG_END
+	RP5H01(config, m_rp5h01, 0);
+}
 
-MACHINE_CONFIG_START(playch10_state::playchnv)
+void playch10_state::playchnv(machine_config &config)
+{
 	playch10(config);
-	MCFG_NVRAM_ADD_0FILL("nvram")
-MACHINE_CONFIG_END
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_0);
+}
 
-MACHINE_CONFIG_START(playch10_state::playch10_hboard)
+void playch10_state::playch10_hboard(machine_config &config)
+{
 	playch10(config);
 	MCFG_VIDEO_START_OVERRIDE(playch10_state,playch10_hboard)
 	MCFG_MACHINE_START_OVERRIDE(playch10_state,playch10_hboard)
-MACHINE_CONFIG_END
+}
 
 /***************************************************************************
 
@@ -719,39 +721,40 @@ MACHINE_CONFIG_END
 	ROMX_LOAD(name, offset, length, hash, ROM_BIOS(bios))
 
 #define BIOS_CPU                                            \
-	ROM_REGION( 0x10000, "maincpu", 0 )                     \
-	ROM_SYSTEM_BIOS( 0, "dual",   "Dual Monitor Version" ) \
-	ROM_LOAD_BIOS( 0, "pch1-c__8t_e-2.8t", 0x00000, 0x4000, CRC(d52fa07a) SHA1(55cabf52ae10c050c2229081a80b9fe5454ab8c5) ) \
-	ROM_SYSTEM_BIOS( 1, "single", "Single Monitor Version" ) \
-	ROM_LOAD_BIOS( 1, "pck1-c.8t", 0x00000, 0x4000, CRC(503ee8b1) SHA1(3bd20bc71cac742d1b8c1430a6426d0a19db7ad0) ) \
-	ROM_SYSTEM_BIOS( 2, "alt", "Alt Bios" ) /* this bios doens't work properly, selecting service mode causes it to hang, is it good? maybe different hw? */ \
-	ROM_LOAD_BIOS( 2, "pch1-c_8te.8t", 0x00000, 0x4000, CRC(123ffa37) SHA1(3bef754a5a85a8498bb6222ddf5cb9021f264db5) ) \
+	ROM_SYSTEM_BIOS( 0, "dual",    "Dual Monitor Version" ) \
+	ROM_SYSTEM_BIOS( 1, "single",  "Single Monitor Version" ) \
+	ROM_SYSTEM_BIOS( 2, "alt",     "Alt Bios" ) /* this bios doesn't work properly, selecting service mode causes it to hang, is it good? maybe different hw? */ \
 	ROM_SYSTEM_BIOS( 3, "singleb", "Single Monitor Version (Newer?)" ) /* Newer single screen? Four bytes different, reported bugfix in freeplay */ \
-	ROM_LOAD_BIOS( 3, "pck1-c_fix.8t", 0x00000, 0x4000, CRC(0be8ceb4) SHA1(45b127a537370226e6b30be2b5a92ad05673ca7f) )
+	ROM_REGION( 0x10000, "maincpu", 0 )                     \
+	ROM_LOAD_BIOS( 0, "pch1-c__8t_e-2.8t", 0x00000, 0x4000, CRC(d52fa07a) SHA1(55cabf52ae10c050c2229081a80b9fe5454ab8c5) ) \
+	ROM_LOAD_BIOS( 1, "pck1-c.8t",         0x00000, 0x4000, CRC(503ee8b1) SHA1(3bd20bc71cac742d1b8c1430a6426d0a19db7ad0) ) \
+	ROM_LOAD_BIOS( 2, "pch1-c_8te.8t",     0x00000, 0x4000, CRC(123ffa37) SHA1(3bef754a5a85a8498bb6222ddf5cb9021f264db5) ) \
+	ROM_LOAD_BIOS( 3, "pck1-c_fix.8t",     0x00000, 0x4000, CRC(0be8ceb4) SHA1(45b127a537370226e6b30be2b5a92ad05673ca7f) )
 
 
 #define BIOS_GFX                                            \
 	ROM_REGION( 0x6000, "gfx1", 0 ) \
-	ROM_LOAD_BIOS( 0, "pch1-c__8p_e-1.8p",    0x00000, 0x2000, CRC(30c15e23) SHA1(69166afdb2fe827c7f1919cdf4197caccbd961fa) )   \
-	ROM_LOAD_BIOS( 0, "pch1-c__8m_e-1.8m",    0x02000, 0x2000, CRC(c1232eee) SHA1(beaf9fa2d091a3c7f70c51e966d885b1f9f0935f) )   \
-	ROM_LOAD_BIOS( 0, "pch1-c__8k.8k",    0x04000, 0x2000, CRC(9acffb30) SHA1(b814f10ef23f2ca445fabafcbf7f25e2d454ba8c) )   \
+	ROM_LOAD_BIOS( 0, "pch1-c__8k.8k",      0x00000, 0x2000, CRC(9acffb30) SHA1(b814f10ef23f2ca445fabafcbf7f25e2d454ba8c) )   \
+	ROM_LOAD_BIOS( 0, "pch1-c__8m_e-1.8m",  0x02000, 0x2000, CRC(c1232eee) SHA1(beaf9fa2d091a3c7f70c51e966d885b1f9f0935f) )   \
+	ROM_LOAD_BIOS( 0, "pch1-c__8p_e-1.8p",  0x04000, 0x2000, CRC(30c15e23) SHA1(69166afdb2fe827c7f1919cdf4197caccbd961fa) )   \
 	\
-	ROM_LOAD_BIOS( 1, "pch1-c__8p_e-1.8p",    0x00000, 0x2000, CRC(30c15e23) SHA1(69166afdb2fe827c7f1919cdf4197caccbd961fa) )   \
-	ROM_LOAD_BIOS( 1, "pch1-c__8m_e-1.8m",    0x02000, 0x2000, CRC(c1232eee) SHA1(beaf9fa2d091a3c7f70c51e966d885b1f9f0935f) )   \
-	ROM_LOAD_BIOS( 1, "pch1-c__8k.8k",    0x04000, 0x2000, CRC(9acffb30) SHA1(b814f10ef23f2ca445fabafcbf7f25e2d454ba8c) )   \
+	ROM_LOAD_BIOS( 1, "pch1-c__8k.8k",      0x00000, 0x2000, CRC(9acffb30) SHA1(b814f10ef23f2ca445fabafcbf7f25e2d454ba8c) )   \
+	ROM_LOAD_BIOS( 1, "pch1-c__8m_e-1.8m",  0x02000, 0x2000, CRC(c1232eee) SHA1(beaf9fa2d091a3c7f70c51e966d885b1f9f0935f) )   \
+	ROM_LOAD_BIOS( 1, "pch1-c__8p_e-1.8p",  0x04000, 0x2000, CRC(30c15e23) SHA1(69166afdb2fe827c7f1919cdf4197caccbd961fa) )   \
 	\
-	ROM_LOAD_BIOS( 2, "pch1-c_8p-8p",    0x00000, 0x2000, CRC(90e1b80c) SHA1(c4f4b135b2a11743518aaa0554c365b4a8cf299a) )   \
-	ROM_LOAD_BIOS( 2, "pch1-c_8m.8m",    0x02000, 0x2000, CRC(83ebc7a3) SHA1(a7c607138f4f9b96ab5d3a82c47895f77672e296) )   \
-	ROM_LOAD_BIOS( 2, "pch1-c__8k.8k",    0x04000, 0x2000, CRC(9acffb30) SHA1(b814f10ef23f2ca445fabafcbf7f25e2d454ba8c) ) \
+	ROM_LOAD_BIOS( 2, "pch1-c__8k.8k",      0x00000, 0x2000, CRC(9acffb30) SHA1(b814f10ef23f2ca445fabafcbf7f25e2d454ba8c) ) \
+	ROM_LOAD_BIOS( 2, "pch1-c_8m.8m",       0x02000, 0x2000, CRC(83ebc7a3) SHA1(a7c607138f4f9b96ab5d3a82c47895f77672e296) )   \
+	ROM_LOAD_BIOS( 2, "pch1-c_8p-8p",       0x04000, 0x2000, CRC(90e1b80c) SHA1(c4f4b135b2a11743518aaa0554c365b4a8cf299a) )   \
 	\
-	ROM_LOAD_BIOS( 3, "pch1-c__8p_e-1.8p",    0x00000, 0x2000, CRC(30c15e23) SHA1(69166afdb2fe827c7f1919cdf4197caccbd961fa) )   \
-	ROM_LOAD_BIOS( 3, "pch1-c__8m_e-1.8m",    0x02000, 0x2000, CRC(c1232eee) SHA1(beaf9fa2d091a3c7f70c51e966d885b1f9f0935f) )   \
-	ROM_LOAD_BIOS( 3, "pch1-c__8k.8k",    0x04000, 0x2000, CRC(9acffb30) SHA1(b814f10ef23f2ca445fabafcbf7f25e2d454ba8c) )   \
+	ROM_LOAD_BIOS( 3, "pch1-c__8k.8k",      0x00000, 0x2000, CRC(9acffb30) SHA1(b814f10ef23f2ca445fabafcbf7f25e2d454ba8c) )   \
+	ROM_LOAD_BIOS( 3, "pch1-c__8m_e-1.8m",  0x02000, 0x2000, CRC(c1232eee) SHA1(beaf9fa2d091a3c7f70c51e966d885b1f9f0935f) )   \
+	ROM_LOAD_BIOS( 3, "pch1-c__8p_e-1.8p",  0x04000, 0x2000, CRC(30c15e23) SHA1(69166afdb2fe827c7f1919cdf4197caccbd961fa) )   \
 	\
 	ROM_REGION( 0x0300, "proms", 0 )                        \
 	ROM_LOAD( "pch1-c-6f.82s129an.6f",    0x0000, 0x0100, CRC(e5414ca3) SHA1(d2878411cda84ffe0afb2e538a67457f51bebffb) )    \
 	ROM_LOAD( "pch1-c-6e.82s129an.6e",    0x0100, 0x0100, CRC(a2625c6e) SHA1(a448b47c9289902e26a3d3c4c7d5a7968c385e81) )    \
 	ROM_LOAD( "pch1-c-6d.82s129an.6d",    0x0200, 0x0100, CRC(1213ebd4) SHA1(0ad386fc3eab5e53c0288ad1de33639a9e461b7c) )    \
+	\
 	ROM_REGION( 0xc0, "ppu:palette", 0 )                    \
 	ROM_LOAD( "rp2c0x.pal", 0x00, 0xc0, CRC(48de65dc) SHA1(d10acafc8da9ff479c270ec01180cca61efe62f5) )
 
@@ -1748,7 +1751,6 @@ GAME( 1987, pc_miket, playch10, playchnv, playch10, playch10_state, init_pceboar
 
 /* F-Board Games */
 GAME( 1987, pc_rcpam, playch10, playch10, playch10, playch10_state, init_pcfboard, ROT0, "Rare",                                     "R.C. Pro-Am (PlayChoice-10)", 0 )
-GAME( 1987, pc_rrngr, playch10, playch10, playch10, playch10_state, init_pcfboard, ROT0, "Capcom USA (Nintendo of America license)", "Chip'n Dale: Rescue Rangers (PlayChoice-10)", 0 )
 GAME( 1988, pc_ddrgn, playch10, playch10, playch10, playch10_state, init_pcfboard, ROT0, "Technos Japan",                            "Double Dragon (PlayChoice-10)", 0 )
 GAME( 1989, pc_ngaid, playch10, playch10, playch10, playch10_state, init_pcfboard, ROT0, "Tecmo (Nintendo of America license)",      "Ninja Gaiden (PlayChoice-10)", 0 )
 GAME( 1989, pc_tmnt,  playch10, playch10, playch10, playch10_state, init_pcfboard, ROT0, "Konami (Nintendo of America license)",     "Teenage Mutant Ninja Turtles (PlayChoice-10)", 0 )
@@ -1756,6 +1758,7 @@ GAME( 1989, pc_ftqst, playch10, playch10, playch10, playch10_state, init_pcfboar
 GAME( 1989, pc_bstar, playch10, playch10, playch10, playch10_state, init_pcfboard_2, ROT0, "SNK (Nintendo of America license)",      "Baseball Stars: Be a Champ! (PlayChoice-10)", MACHINE_IMPERFECT_GRAPHICS )
 GAME( 1989, pc_tbowl, playch10, playch10, playch10, playch10_state, init_pcfboard, ROT0, "Tecmo (Nintendo of America license)",      "Tecmo Bowl (PlayChoice-10)", 0 )
 GAME( 1990, pc_virus, pc_drmro, playch10, playch10, playch10_state, init_virus,    ROT0, "Nintendo",                                 "Virus (Dr. Mario prototype, PlayChoice-10)", 0 )
+GAME( 1990, pc_rrngr, playch10, playch10, playch10, playch10_state, init_pcfboard, ROT0, "Capcom USA (Nintendo of America license)", "Chip'n Dale: Rescue Rangers (PlayChoice-10)", 0 )
 GAME( 1990, pc_drmro, playch10, playch10, playch10, playch10_state, init_pcfboard, ROT0, "Nintendo",                                 "Dr. Mario (PlayChoice-10)", 0 )
 GAME( 1990, pc_bload, playch10, playch10, playch10, playch10_state, init_virus,    ROT0, "Jaleco (Nintendo of America license)",     "Bases Loaded (Prototype, PlayChoice-10)", 0 )
 GAME( 1990, pc_ynoid, playch10, playch10, playch10, playch10_state, init_pcfboard, ROT0, "Capcom USA (Nintendo of America license)", "Yo! Noid (PlayChoice-10)", 0 )

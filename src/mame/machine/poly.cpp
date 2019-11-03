@@ -157,12 +157,12 @@ WRITE8_MEMBER(poly_state::baud_rate_w )
 
 READ8_MEMBER(poly_state::network_r)
 {
-	return m_adlc->read(space, offset >> 1);
+	return m_adlc->read(offset >> 1);
 }
 
 WRITE8_MEMBER(poly_state::network_w)
 {
-	m_adlc->write(space, offset >> 1, data);
+	m_adlc->write(offset >> 1, data);
 }
 
 WRITE_LINE_MEMBER(poly_state::network_clk_w)
@@ -211,12 +211,12 @@ WRITE_LINE_MEMBER(polydev_state::motor_w)
 
 READ8_MEMBER(polydev_state::fdc_inv_r)
 {
-	return m_fdc->gen_r(offset) ^ 0xff;
+	return m_fdc->read(offset) ^ 0xff;
 }
 
 WRITE8_MEMBER(polydev_state::fdc_inv_w)
 {
-	m_fdc->gen_w(offset, data ^ 0xff);
+	m_fdc->write(offset, data ^ 0xff);
 }
 
 

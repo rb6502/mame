@@ -6,8 +6,8 @@
  */
 
 #include "nld_mm5837.h"
-#include "../solver/nld_matrix_solver.h"
-#include "../analog/nlid_twoterm.h"
+#include "netlist/analog/nlid_twoterm.h"
+#include "netlist/solver/nld_matrix_solver.h"
 
 #define R_LOW (1000.0)
 #define R_HIGH (1000.0)
@@ -51,7 +51,7 @@ namespace netlist
 		analog_input_t m_VDD;
 		analog_input_t m_VGG;
 		analog_input_t m_VSS;
-		param_double_t m_FREQ;
+		param_fp_t m_FREQ;
 
 		/* clock stage */
 		logic_input_t m_feedback;
@@ -69,20 +69,22 @@ namespace netlist
 	{
 		//m_V0.initial(0.0);
 		//m_RV.do_reset();
-		m_RV.set(NL_FCONST(1.0) / R_LOW, 0.0, 0.0);
-		m_inc = netlist_time::from_double(1.0 / m_FREQ());
-		if (m_FREQ() < 24000 || m_FREQ() > 56000)
-			log().warning(MW_1_FREQUENCY_OUTSIDE_OF_SPECS_1, m_FREQ());
+		m_RV.set_G_V_I(nlconst::one() / nlconst::magic(R_LOW),
+			nlconst::zero(),
+			nlconst::zero());
+		m_inc = netlist_time::from_fp(plib::reciprocal(m_FREQ()));
+		if (m_FREQ() < nlconst::magic(24000) || m_FREQ() > nlconst::magic(56000))
+			log().warning(MW_FREQUENCY_OUTSIDE_OF_SPECS_1(m_FREQ()));
 
 		m_shift = 0x1ffff;
-		m_is_timestep = m_RV.m_P.net().solver()->is_timestep();
+		m_is_timestep = m_RV.m_P.net().solver()->has_timestep_devices();
 	}
 
 	NETLIB_UPDATE_PARAM(MM5837_dip)
 	{
-		m_inc = netlist_time::from_double(1.0 / m_FREQ());
-		if (m_FREQ() < 24000 || m_FREQ() > 56000)
-			log().warning(MW_1_FREQUENCY_OUTSIDE_OF_SPECS_1, m_FREQ());
+		m_inc = netlist_time::from_fp(plib::reciprocal(m_FREQ()));
+		if (m_FREQ() < nlconst::magic(24000) || m_FREQ() > nlconst::magic(56000))
+			log().warning(MW_FREQUENCY_OUTSIDE_OF_SPECS_1(m_FREQ()));
 	}
 
 	NETLIB_UPDATE(MM5837_dip)
@@ -102,19 +104,19 @@ namespace netlist
 
 		if (state != last_state)
 		{
-			const nl_double R = state ? R_HIGH : R_LOW;
-			const nl_double V = state ? m_VDD() : m_VSS();
+			const nl_fptype R = nlconst::magic(state ? R_HIGH : R_LOW);
+			const nl_fptype V = state ? m_VDD() : m_VSS();
 
 			// We only need to update the net first if this is a time stepping net
 			if (m_is_timestep)
-				m_RV.update_dev();
-			m_RV.set(NL_FCONST(1.0) / R, V, 0.0);
-			m_RV.m_P.schedule_solve_after(NLTIME_FROM_NS(1));
+				m_RV.update();
+			m_RV.set_G_V_I(nlconst::one() / R, V, nlconst::zero());
+			m_RV.solve_later(NLTIME_FROM_NS(1));
 		}
 
 	}
 
-	NETLIB_DEVICE_IMPL(MM5837_dip)
+	NETLIB_DEVICE_IMPL(MM5837_dip, "MM5837_DIP", "")
 
 	} //namespace devices
 } // namespace netlist

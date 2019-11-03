@@ -167,18 +167,18 @@ WRITE8_MEMBER(primo_state::primo_ki_2_w)
 	// bit 7, 6 - not used
 
 	// bit 5 - SCLK
-	m_iec->clk_w(!BIT(data, 5));
+	m_iec->host_clk_w(!BIT(data, 5));
 
 	// bit 4 - SDATA
-	m_iec->data_w(!BIT(data, 4));
+	m_iec->host_data_w(!BIT(data, 4));
 
 	// bit 3 - not used
 
 	// bit 2 - SRQ
-	m_iec->srq_w(!BIT(data, 2));
+	m_iec->host_srq_w(!BIT(data, 2));
 
 	// bit 1 - ATN
-	m_iec->atn_w(!BIT(data, 1));
+	m_iec->host_atn_w(!BIT(data, 1));
 
 	// bit 0 - not used
 
@@ -296,7 +296,7 @@ void primo_state::primo_setup_pss (uint8_t* snapshot_data, uint32_t snapshot_siz
 		m_maincpu->space(AS_PROGRAM).write_byte(i + 0x4000, snapshot_data[i + 38]);
 }
 
-SNAPSHOT_LOAD_MEMBER( primo_state, primo )
+SNAPSHOT_LOAD_MEMBER(primo_state::snapshot_cb)
 {
 	std::vector<uint8_t> snapshot_data(snapshot_size);
 
@@ -338,7 +338,7 @@ void primo_state::primo_setup_pp(uint8_t* quickload_data, uint32_t quickload_siz
 	logerror ("Quickload .pp l: %04x r: %04x s: %04x\n", load_addr, start_addr, quickload_size-4);
 }
 
-QUICKLOAD_LOAD_MEMBER( primo_state, primo )
+QUICKLOAD_LOAD_MEMBER(primo_state::quickload_cb)
 {
 	std::vector<uint8_t> quickload_data(quickload_size);
 

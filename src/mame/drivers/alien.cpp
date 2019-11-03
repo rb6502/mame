@@ -6,8 +6,8 @@
 
     skeleton driver
 
-   Main board:
-   Capcom AMT-04054
+   Main boards:
+   Capcom AMT-04054 "YUI2"
     - Hitachi SH-4 HD6417750S at 200MHz
     - Elpida DS1232AA-75 1M x 32-bit x 4-banks (128Mbit) SDRAM
     - Altera ACEX EP1K50TC144-3 FPGA
@@ -18,6 +18,9 @@
   * - 2 x ADV7120 Video DAC
   * - Yamaha YMZ770B-F 'AMMSL' SPU
    components marked * might be not populated
+
+   Capcom AMT-02008 "YUI"
+    - FPGA is Altera FLEX 6000, other differences / details is unknown
 
    Upper boards (game specific):
 
@@ -41,22 +44,23 @@
      - Alien Danger (c) 2007
      - Chibi Maruko-chan Aim Fuji Nippon Ichi! (c) 2008
  *   - Donkey Kong Banana Kingdom (c) 2006
-     - Super Mario Fushigi No Korokoro Party 2 (c) 2005
+ !   - Super Mario Fushigi no Korokoro Party 2 (c) 2005
 
     Single player medal machines:
     Medalusion:
      - Chibi Maruko-chan's "Sugoroku Playfully Everyone" Volume (c) 2003
      - Donkey Kong: Jungle Fever (c) 2005 Capcom / Nintendo / Namco
-     - Rockman Exe The Medal Operation (c) 2005
+     - Rockman EXE The Medal Operation (c) 2005
      - Super Mario Fushigi No JanJanLand (c) 2005
 
     Medalusion 2:
-     - Doko Demo Issho Toro's Fishing (c) 2006
- *   - Pingu's Ice Block (c) 2005
-     - Shooter Village (c) 2005
-     - Won! Tertainment Happy Channel (c) 2008
+ !   - Doko Demo Issho Toro's Fishing (c) 2006
+ !   - Pingu's Ice Block (c) 2005
+     - Geki Makaimura (c) 2005
+ !   - Won! Tertainment Happy Channel (c) 2008 note: main board is different, uses Yamaha YMZ770C instead of YMZ770B
 
  * - dumped
+ ! - CF card dumped, boot roms missing
 
 ***********************************************************************************/
 
@@ -77,15 +81,16 @@ public:
 			m_maincpu(*this, "maincpu")
 	{ }
 
+	void alien(machine_config &config);
+
+	void init_dkbanans();
+
+private:
 	DECLARE_READ64_MEMBER(test_r);
 
 	uint32_t screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 
-	void alien(machine_config &config);
 	void alien_map(address_map &map);
-
-	void init_dkbanans();
-protected:
 
 	// devices
 	required_device<cpu_device> m_maincpu;
@@ -131,27 +136,27 @@ void alien_state::machine_reset()
 	//m_maincpu->set_input_line(INPUT_LINE_HALT, ASSERT_LINE);
 }
 
-MACHINE_CONFIG_START(alien_state::alien)
+void alien_state::alien(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", SH4LE, MASTER_CLOCK)    /* 200MHz */
-	MCFG_DEVICE_PROGRAM_MAP(alien_map)
-	MCFG_CPU_FORCE_NO_DRC()
+	SH4LE(config, m_maincpu, MASTER_CLOCK);    /* 200MHz */
+	m_maincpu->set_addrmap(AS_PROGRAM, &alien_state::alien_map);
+	m_maincpu->set_force_no_drc(true);
 
 	/* video hardware */
 
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(0))
-	MCFG_SCREEN_UPDATE_DRIVER(alien_state, screen_update)
-	MCFG_SCREEN_SIZE((32)*8, (32)*8)
-	MCFG_SCREEN_VISIBLE_AREA(0*8, 32*8-1, 0*8, 32*8-1)
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(0));
+	screen.set_screen_update(FUNC(alien_state::screen_update));
+	screen.set_size((32)*8, (32)*8);
+	screen.set_visarea_full();
 
-	MCFG_PALETTE_ADD("palette", 0x1000)
+	PALETTE(config, "palette").set_entries(0x1000);
 
 	/* sound hardware */
 	SPEAKER(config, "mono").front_center();
-
-MACHINE_CONFIG_END
+}
 
 void alien_state::init_dkbanans()
 {
@@ -228,8 +233,47 @@ ROM_START( dkbanans )
 	DISK_IMAGE( "dkbanana", 0, SHA1(c6b50486f2a6382a7eb36167712342212f87c189) )
 ROM_END
 
+// CF card only dumped, boot ROMs is missing
+ROM_START( dokodemo )
+	ROM_REGION( 0x800000, "maincpu", 0 ) // BIOS code
+	ROM_LOAD32_WORD( "ic30", 0x000000, 0x400000, BAD_DUMP CRC(6b2d2ef1) SHA1(0db6490b40c5716c1271b7f99608e8c7ad916516) ) //
+	ROM_LOAD32_WORD( "ic33", 0x000002, 0x400000, BAD_DUMP CRC(64049fc3) SHA1(b373b2c8cb4d66b9c700e0542bd26444484fae40) ) // modified boot roms from dkbanans
+
+	ROM_REGION( 0x800100, "ymz770b", ROMREGION_ERASEFF ) //sound samples flash rom, not really needed, programmed by boot loader
+
+	DISK_REGION( "card" ) //compact flash
+	DISK_IMAGE( "dokodemo", 0, SHA1(0c786b6857a29b26971578abe1c8439fe43d94b5) )
+ROM_END
+
+// CF card only dumped, boot ROMs is missing
+ROM_START( masmario )
+	ROM_REGION( 0x800000, "maincpu", 0 ) // BIOS code
+	ROM_LOAD32_WORD( "ic30", 0x000000, 0x400000, BAD_DUMP CRC(6b2d2ef1) SHA1(0db6490b40c5716c1271b7f99608e8c7ad916516) ) //
+	ROM_LOAD32_WORD( "ic33", 0x000002, 0x400000, BAD_DUMP CRC(64049fc3) SHA1(b373b2c8cb4d66b9c700e0542bd26444484fae40) ) // modified boot roms from dkbanans
+
+	ROM_REGION( 0x1000000, "ymz770b", ROMREGION_ERASEFF )
+
+	DISK_REGION( "card" ) //compact flash
+	DISK_IMAGE( "massmario", 0, SHA1(9632c91bf2e4983ee29f417e3122e9380baee25b) )
+ROM_END
+
+// CF card only dumped, boot ROMs is missing
+ROM_START( wontame )
+	ROM_REGION( 0x800000, "maincpu", 0 ) // BIOS code
+	ROM_LOAD32_WORD( "ic30", 0x000000, 0x400000, BAD_DUMP CRC(6b2d2ef1) SHA1(0db6490b40c5716c1271b7f99608e8c7ad916516) ) //
+	ROM_LOAD32_WORD( "ic33", 0x000002, 0x400000, BAD_DUMP CRC(64049fc3) SHA1(b373b2c8cb4d66b9c700e0542bd26444484fae40) ) // modified boot roms from dkbanans
+
+	ROM_REGION( 0x800000, "ymz770c", ROMREGION_ERASEFF )
+
+	DISK_REGION( "card" ) //compact flash
+	DISK_IMAGE( "wontame", 0, SHA1(eb4fe73d5f723b3af08d96c6d3061c9bbc7b2488) )
+ROM_END
+
 
 GAME( 2005, alien,    0,        alien, alien, alien_state, empty_init,    ROT0, "Capcom",               "Alien: The Arcade Medal Edition", MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
 GAME( 2006, pingu,    0,        alien, alien, alien_state, empty_init,    ROT0, "Pygos Group / Capcom", "Pingu's Ice Block", MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
 GAME( 2007, dkbanana, 0,        alien, alien, alien_state, empty_init,    ROT0, "Capcom",               "Donkey Kong Banana Kingdom (host)", MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
 GAME( 2007, dkbanans, dkbanana, alien, alien, alien_state, init_dkbanans, ROT0, "Capcom",               "Donkey Kong Banana Kingdom (satellite)", MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
+GAME( 2006, dokodemo, 0,        alien, alien, alien_state, empty_init,    ROT0, "Sony / Capcom",        "Doko Demo Issho: Toro's Fishing", MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
+GAME( 2005, masmario, 0,        alien, alien, alien_state, empty_init,    ROT0, "Nintendo / Capcom",    "Super Mario Fushigi no Korokoro Party 2", MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
+GAME( 2008, wontame,  0,        alien, alien, alien_state, empty_init,    ROT0, "Capcom / Tomy",        "Won! Tertainment Happy Channel (Ver E)", MACHINE_NO_SOUND | MACHINE_NOT_WORKING )

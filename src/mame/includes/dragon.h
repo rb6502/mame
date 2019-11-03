@@ -8,10 +8,10 @@
 
 ***************************************************************************/
 
-#pragma once
-
 #ifndef MAME_INCLUDES_DRAGON_H
 #define MAME_INCLUDES_DRAGON_H
+
+#pragma once
 
 
 #include "includes/coco12.h"
@@ -122,7 +122,7 @@ protected:
 	virtual void device_reset() override;
 
 private:
-	required_device<hd6845_device> m_crtc;
+	required_device<hd6845s_device> m_crtc;
 	required_device<palette_device> m_palette;
 	optional_shared_ptr<uint8_t> m_plus_ram;
 	optional_shared_ptr<uint8_t> m_video_ram;

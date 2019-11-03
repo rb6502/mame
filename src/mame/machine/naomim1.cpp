@@ -45,9 +45,11 @@ void naomi_m1_board::device_start()
 		actel_id = 0;
 	}
 
+	key = swapendian_int32(key);
+
 	buffer = std::make_unique<uint8_t[]>(BUFFER_SIZE);
 
-	save_pointer(NAME(buffer.get()), BUFFER_SIZE);
+	save_pointer(NAME(buffer), BUFFER_SIZE);
 	save_item(NAME(dict));
 	save_item(NAME(hist));
 	save_item(NAME(rom_cur_address));

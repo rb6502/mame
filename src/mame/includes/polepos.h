@@ -11,18 +11,20 @@
 #pragma once
 
 #include "machine/74259.h"
+#include "machine/adc0804.h"
 #include "machine/gen_latch.h"
 #include "machine/timer.h"
 #include "sound/namco.h"
 #include "emupal.h"
 #include "screen.h"
+#include "tilemap.h"
 
 
 class polepos_state : public driver_device
 {
 public:
-	polepos_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	polepos_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
 		m_subcpu(*this, "sub"),
 		m_subcpu2(*this, "sub2"),
@@ -30,15 +32,17 @@ public:
 		m_soundlatch(*this, "soundlatch"),
 		m_namco_sound(*this, "namco"),
 		m_latch(*this, "latch"),
+		m_adc(*this, "adc"),
 		m_sprite16_memory(*this, "sprite16_memory"),
 		m_road16_memory(*this, "road16_memory"),
 		m_alpha16_memory(*this, "alpha16_memory"),
 		m_view16_memory(*this, "view16_memory"),
 		m_gfxdecode(*this, "gfxdecode"),
 		m_screen(*this, "screen"),
-		m_palette(*this, "palette") { }
+		m_palette(*this, "palette")
+	{ }
 
-	DECLARE_CUSTOM_INPUT_MEMBER(auto_start_r);
+	DECLARE_READ_LINE_MEMBER(auto_start_r);
 
 	void init_polepos2();
 
@@ -59,6 +63,7 @@ private:
 	optional_device<generic_latch_8_device> m_soundlatch;
 	optional_device<namco_device> m_namco_sound;
 	required_device<ls259_device> m_latch;
+	required_device<adc0804_device> m_adc;
 	required_shared_ptr<uint16_t> m_sprite16_memory;
 	required_shared_ptr<uint16_t> m_road16_memory;
 	required_shared_ptr<uint16_t> m_alpha16_memory;
@@ -85,7 +90,7 @@ private:
 	uint8_t m_sub_irq_mask;
 
 	DECLARE_READ16_MEMBER(polepos2_ic25_r);
-	DECLARE_READ8_MEMBER(adc_r);
+	uint8_t analog_r();
 	DECLARE_READ8_MEMBER(ready_r);
 	DECLARE_WRITE_LINE_MEMBER(iosel_w);
 	DECLARE_WRITE_LINE_MEMBER(gasel_w);
@@ -114,7 +119,7 @@ private:
 	DECLARE_WRITE8_MEMBER(bootleg_soundlatch_w);
 	TILE_GET_INFO_MEMBER(bg_get_tile_info);
 	TILE_GET_INFO_MEMBER(tx_get_tile_info);
-	DECLARE_PALETTE_INIT(polepos);
+	void polepos_palette(palette_device &palette);
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	TIMER_DEVICE_CALLBACK_MEMBER(scanline);
 	void draw_road(bitmap_ind16 &bitmap);

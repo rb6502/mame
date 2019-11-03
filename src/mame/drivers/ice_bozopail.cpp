@@ -29,11 +29,13 @@ public:
 		, m_maincpu(*this, "maincpu")
 	{ }
 
+	void ice_bozo(machine_config &config);
+
+private:
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 
 	required_device<cpu_device> m_maincpu;
-	void ice_bozo(machine_config &config);
 	void ice_bozo_map(address_map &map);
 };
 
@@ -56,15 +58,15 @@ void ice_bozopail_state::machine_reset()
 }
 
 
-MACHINE_CONFIG_START(ice_bozopail_state::ice_bozo)
-
+void ice_bozopail_state::ice_bozo(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", MC68HC11, 8000000) // unknown clock
-	MCFG_DEVICE_PROGRAM_MAP(ice_bozo_map)
+	MC68HC11A1(config, m_maincpu, 8000000); // unknown clock
+	m_maincpu->set_addrmap(AS_PROGRAM, &ice_bozopail_state::ice_bozo_map);
 
 	/* sound hardware */
 	SPEAKER(config, "mono").front_center();
-MACHINE_CONFIG_END
+}
 
 
 

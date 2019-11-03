@@ -4,7 +4,7 @@
 
     m6502.c
 
-    Mostek 6502, original NMOS variant
+    MOS Technology 6502, original NMOS variant
 
 ***************************************************************************/
 
@@ -27,15 +27,11 @@ m6502_device::m6502_device(const machine_config &mconfig, device_type type, cons
 	sprogram_config("decrypted_opcodes", ENDIANNESS_LITTLE, 8, 16), PPC(0), NPC(0), PC(0), SP(0), TMP(0), TMP2(0), A(0), X(0), Y(0), P(0), IR(0), inst_state_base(0), mintf(nullptr),
 	inst_state(0), inst_substate(0), icount(0), nmi_state(false), irq_state(false), apu_irq_state(false), v_state(false), irq_taken(false), sync(false), inhibit_interrupts(false)
 {
-	cache_disabled = false;
 }
 
 void m6502_device::device_start()
 {
-	if(cache_disabled)
-		mintf = std::make_unique<mi_default_nd>();
-	else
-		mintf = std::make_unique<mi_default_normal>();
+	mintf = std::make_unique<mi_default>();
 
 	init();
 }
@@ -93,7 +89,7 @@ void m6502_device::init()
 	X = 0x80;
 	Y = 0x00;
 	P = 0x36;
-	SP = 0x01bd;
+	SP = 0x0100;
 	TMP = 0x0000;
 	TMP2 = 0x00;
 	IR = 0x00;
@@ -107,6 +103,7 @@ void m6502_device::init()
 	inst_state_base = 0;
 	sync = false;
 	inhibit_interrupts = false;
+	count_before_instruction_step = 0;
 }
 
 void m6502_device::device_reset()
@@ -523,35 +520,87 @@ void m6502_device::memory_interface::write_9(uint16_t adr, uint8_t val)
 }
 
 
-uint8_t m6502_device::mi_default_normal::read(uint16_t adr)
+uint8_t m6502_device::mi_default::read(uint16_t adr)
 {
 	return program->read_byte(adr);
 }
 
-uint8_t m6502_device::mi_default_normal::read_sync(uint16_t adr)
+uint8_t m6502_device::mi_default::read_sync(uint16_t adr)
 {
 	return scache->read_byte(adr);
 }
 
-uint8_t m6502_device::mi_default_normal::read_arg(uint16_t adr)
+uint8_t m6502_device::mi_default::read_arg(uint16_t adr)
 {
 	return cache->read_byte(adr);
 }
 
-
-void m6502_device::mi_default_normal::write(uint16_t adr, uint8_t val)
+void m6502_device::mi_default::write(uint16_t adr, uint8_t val)
 {
 	program->write_byte(adr, val);
 }
 
-uint8_t m6502_device::mi_default_nd::read_sync(uint16_t adr)
+
+m6502_mcu_device::m6502_mcu_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock) :
+	m6502_device(mconfig, type, tag, owner, clock)
 {
-	return sprogram->read_byte(adr);
 }
 
-uint8_t m6502_device::mi_default_nd::read_arg(uint16_t adr)
+
+void m6502_mcu_device::recompute_bcount(uint64_t event_time)
 {
-	return program->read_byte(adr);
+	if(!event_time || event_time >= total_cycles() + icount) {
+		bcount = 0;
+		return;
+	}
+	bcount = total_cycles() + icount - event_time;
+}
+
+void m6502_mcu_device::execute_run()
+{
+	internal_update(total_cycles());
+
+	icount -= count_before_instruction_step;
+	if(icount < 0) {
+		count_before_instruction_step = -icount;
+		icount = 0;
+	} else
+		count_before_instruction_step = 0;
+
+	while(bcount && icount <= bcount)
+		internal_update(total_cycles() + icount - bcount);
+
+	if(icount > 0 && inst_substate)
+		do_exec_partial();
+
+	while(icount > 0) {
+		while(icount > bcount) {
+			if(inst_state < 0xff00) {
+				PPC = NPC;
+				inst_state = IR | inst_state_base;
+				if(machine().debug_flags & DEBUG_FLAG_ENABLED)
+					debugger_instruction_hook(NPC);
+			}
+			do_exec_full();
+		}
+		if(icount > 0)
+			while(bcount && icount <= bcount)
+				internal_update(total_cycles() + icount - bcount);
+		if(icount > 0 && inst_substate)
+			do_exec_partial();
+	}
+	if(icount < 0) {
+		count_before_instruction_step = -icount;
+		icount = 0;
+	}
+}
+
+void m6502_mcu_device::add_event(uint64_t &event_time, uint64_t new_event)
+{
+	if(!new_event)
+		return;
+	if(!event_time || event_time > new_event)
+		event_time = new_event;
 }
 
 

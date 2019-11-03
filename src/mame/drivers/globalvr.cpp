@@ -69,7 +69,7 @@ public:
 
 	void globalvr(machine_config &config);
 	void globalvr_map(address_map &map);
-protected:
+private:
 
 	// devices
 	required_device<cpu_device> m_maincpu;
@@ -87,11 +87,12 @@ static INPUT_PORTS_START( globalvr )
 INPUT_PORTS_END
 
 
-MACHINE_CONFIG_START(globalvr_state::globalvr)
+void globalvr_state::globalvr(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", PENTIUM, 100000000)      /* ? MHz */
-	MCFG_DEVICE_PROGRAM_MAP(globalvr_map)
-MACHINE_CONFIG_END
+	PENTIUM(config, m_maincpu, 100000000);      /* ? MHz */
+	m_maincpu->set_addrmap(AS_PROGRAM, &globalvr_state::globalvr_map);
+}
 
 
 ROM_START( hyperv2 )

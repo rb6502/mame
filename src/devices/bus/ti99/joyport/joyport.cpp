@@ -44,10 +44,17 @@ DEFINE_DEVICE_TYPE_NS(TI99_JOYPORT, bus::ti99::joyport, joyport_device, "ti99_jo
 
 namespace bus { namespace ti99 { namespace joyport {
 
+device_ti99_joyport_interface::device_ti99_joyport_interface(const machine_config &config, device_t &device)
+	:	device_interface(device, "ti99joyport"),
+		m_joyport(nullptr)
+{
+}
+
 joyport_device::joyport_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	:   device_t(mconfig, TI99_JOYPORT, tag, owner, clock),
-		device_slot_interface(mconfig, *this),
-		m_interrupt(*this), m_connected(nullptr)
+		device_single_card_slot_interface<device_ti99_joyport_interface>(mconfig, *this),
+		m_interrupt(*this),
+		m_connected(nullptr)
 {
 }
 
@@ -104,21 +111,21 @@ void device_ti99_joyport_interface::interface_config_complete()
 
 } } } // end namespace bus::ti99::joyport
 
-void ti99_joystick_port(device_slot_interface &device)
+void ti99_joyport_options_plain(device_slot_interface &device)
+{
+	device.option_add("twinjoy", TI99_JOYSTICK);
+}
+
+void ti99_joyport_options_mouse(device_slot_interface &device)
 {
 	device.option_add("twinjoy", TI99_JOYSTICK);
 	device.option_add("mecmouse", TI99_MECMOUSE);
 }
 
-void ti99_joystick_port_gen(device_slot_interface &device)
+void ti99_joyport_options_994(device_slot_interface &device)
 {
 	device.option_add("twinjoy", TI99_JOYSTICK);
-}
-
-void ti99_joystick_port_994(device_slot_interface &device)
-{
-	device.option_add("twinjoy", TI99_JOYSTICK);
-	device.option_add("mecmouse", TI99_MECMOUSE);
 	device.option_add("handset", TI99_HANDSET);
+	device.option_add("mecmouse", TI99_MECMOUSE);
 }
 

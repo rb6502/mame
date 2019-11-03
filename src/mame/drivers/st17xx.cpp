@@ -50,11 +50,13 @@ public:
 	st17xx_state(const machine_config &mconfig, device_type type, const char *tag)
 		: driver_device(mconfig, type, tag) { }
 
+	void st17xx(machine_config &config);
+
+private:
 	virtual void machine_start() override;
 
 	virtual void video_start() override;
 	uint32_t screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
-	void st17xx(machine_config &config);
 	void cpu_map(address_map &map);
 };
 
@@ -89,21 +91,22 @@ void st17xx_state::machine_start()
 
 /* Machine Driver */
 
-MACHINE_CONFIG_START(st17xx_state::st17xx)
+void st17xx_state::st17xx(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", ARM7, 50000000) /* speed unknown */
-	MCFG_DEVICE_PROGRAM_MAP(cpu_map)
+	arm7_cpu_device &maincpu(ARM7(config, "maincpu", 50000000)); /* speed unknown */
+	maincpu.set_addrmap(AS_PROGRAM, &st17xx_state::cpu_map);
 
 	/* video hardware */
-	MCFG_SCREEN_ADD(SCREEN_TAG, RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(2500)) /* not accurate */
-	MCFG_SCREEN_UPDATE_DRIVER(st17xx_state, screen_update)
-	MCFG_SCREEN_SIZE(640, 480)
-	MCFG_SCREEN_VISIBLE_AREA(0, 640-1, 0, 480-1)
+	screen_device &screen(SCREEN(config, SCREEN_TAG, SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(2500)); /* not accurate */
+	screen.set_screen_update(FUNC(st17xx_state::screen_update));
+	screen.set_size(640, 480);
+	screen.set_visarea(0, 640-1, 0, 480-1);
 
-	MCFG_PALETTE_ADD("palette", 64)
-MACHINE_CONFIG_END
+	PALETTE(config, "palette").set_entries(64);
+}
 
 /* ROMs */
 

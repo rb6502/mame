@@ -1,5 +1,9 @@
 // license:BSD-3-Clause
 // copyright-holders:Nicola Salmoria
+#ifndef MAME_INCLUDES_AEROFGT_H
+#define MAME_INCLUDES_AEROFGT_H
+
+#pragma once
 
 #include "machine/gen_latch.h"
 #include "video/vsystem_spr.h"
@@ -7,6 +11,7 @@
 #include "sound/okim6295.h"
 #include "sound/upd7759.h"
 #include "emupal.h"
+#include "tilemap.h"
 
 class aerofgt_state : public driver_device
 {
@@ -172,3 +177,5 @@ public:
 	void wbbc97_map(address_map &map);
 	void wbbc97_sound_map(address_map &map);
 };
+
+#endif // MAME_INCLUDES_AEROFGT_H

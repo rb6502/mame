@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:David Haywood,Paul Priest
+// copyright-holders:David Haywood,Paul Priest, Luca Elia
 /* Jaleco MegaSystem 32 Video Hardware */
 
 /* The Video Hardware is Similar to the Non-MS32 Version of Tetris Plus 2 */
@@ -66,10 +66,10 @@ TILE_GET_INFO_MEMBER(ms32_state::get_ms32_extra_tile_info)
 
 void ms32_state::video_start()
 {
-	m_tx_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(ms32_state::get_ms32_tx_tile_info),this),TILEMAP_SCAN_ROWS,8, 8,64,64);
-	m_bg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(ms32_state::get_ms32_bg_tile_info),this),TILEMAP_SCAN_ROWS,16,16,64,64);
-	m_bg_tilemap_alt = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(ms32_state::get_ms32_bg_tile_info),this),TILEMAP_SCAN_ROWS,16,16,256,16); // alt layout, controller by register?
-	m_roz_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(ms32_state::get_ms32_roz_tile_info),this),TILEMAP_SCAN_ROWS,16,16,128,128);
+	m_tx_tilemap     = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(ms32_state::get_ms32_tx_tile_info)),  TILEMAP_SCAN_ROWS,  8, 8,  64, 64);
+	m_bg_tilemap     = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(ms32_state::get_ms32_bg_tile_info)),  TILEMAP_SCAN_ROWS, 16,16,  64, 64);
+	m_bg_tilemap_alt = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(ms32_state::get_ms32_bg_tile_info)),  TILEMAP_SCAN_ROWS, 16,16, 256, 16); // alt layout, controller by register?
+	m_roz_tilemap    = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(ms32_state::get_ms32_roz_tile_info)), TILEMAP_SCAN_ROWS, 16,16, 128,128);
 
 
 	/* set up tile layers */
@@ -117,7 +117,7 @@ VIDEO_START_MEMBER(ms32_state,f1superb)
 {
 	ms32_state::video_start();
 
-	m_extra_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(ms32_state::get_ms32_extra_tile_info),this),TILEMAP_SCAN_ROWS,2048,1,1,0x400);
+	m_extra_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(ms32_state::get_ms32_extra_tile_info)), TILEMAP_SCAN_ROWS, 2048, 1, 1, 0x400);
 }
 
 /********** PALETTE WRITES **********/
@@ -131,6 +131,7 @@ void ms32_state::update_color(int color)
 	   affecting bg & sprites, not fg.
 	   The second brightness control might apply to shadows, see gametngk.
 	 */
+	// TODO : p47aces : brightness are disabled sometimes, see https://youtu.be/PQsefFtqAwA
 	if (~color & 0x4000)
 	{
 		r = ((m_palram[color*2] & 0xff00) >>8 ) * m_brt_r / 0x100;

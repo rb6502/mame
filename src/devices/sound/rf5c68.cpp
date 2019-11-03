@@ -13,6 +13,7 @@
 
 // device type definition
 DEFINE_DEVICE_TYPE(RF5C68, rf5c68_device, "rf5c68", "Ricoh RF5C68")
+DEFINE_DEVICE_TYPE(RF5C164, rf5c164_device, "rf5c164", "Ricoh RF5C164")
 
 
 //**************************************************************************
@@ -23,8 +24,8 @@ DEFINE_DEVICE_TYPE(RF5C68, rf5c68_device, "rf5c68", "Ricoh RF5C68")
 //  rf5c68_device - constructor
 //-------------------------------------------------
 
-rf5c68_device::rf5c68_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
-	: device_t(mconfig, RF5C68, tag, owner, clock)
+rf5c68_device::rf5c68_device(const machine_config & mconfig, device_type type, const char * tag, device_t * owner, u32 clock)
+	: device_t(mconfig, type, tag, owner, clock)
 	, device_sound_interface(mconfig, *this)
 	, device_memory_interface(mconfig, *this)
 	, m_data_config("data", ENDIANNESS_LITTLE, 8, 16) // 15 bit Address + 2 Memory select outputs(total 64KB), PSRAM/SRAM/ROM
@@ -32,6 +33,22 @@ rf5c68_device::rf5c68_device(const machine_config &mconfig, const char *tag, dev
 	, m_cbank(0)
 	, m_wbank(0)
 	, m_enable(0)
+	, m_sample_end_cb(*this)
+{
+}
+
+rf5c68_device::rf5c68_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
+	: rf5c68_device(mconfig, RF5C68, tag, owner, clock)
+{
+}
+
+
+//-------------------------------------------------
+//  rf5c68_device - constructor
+//-------------------------------------------------
+
+rf5c164_device::rf5c164_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
+	: rf5c68_device(mconfig, RF5C164, tag, owner, clock)
 {
 }
 
@@ -45,7 +62,7 @@ void rf5c68_device::device_start()
 	m_data = &space(0);
 	// Find our direct access
 	m_cache = space().cache<0, 0, ENDIANNESS_LITTLE>();
-	m_sample_end_cb.bind_relative_to(*owner());
+	m_sample_end_cb.resolve();
 
 	/* allocate the stream */
 	m_stream = stream_alloc(0, 2, clock() / 384);
@@ -63,6 +80,15 @@ void rf5c68_device::device_start()
 	save_item(NAME(m_cbank));
 	save_item(NAME(m_wbank));
 	save_item(NAME(m_enable));
+}
+
+//-------------------------------------------------
+//  device_clock_changed
+//-------------------------------------------------
+
+void rf5c68_device::device_clock_changed()
+{
+	m_stream->set_sample_rate(clock() / 384);
 }
 
 //-------------------------------------------------
@@ -164,7 +190,7 @@ void rf5c68_device::sound_stream_update(sound_stream &stream, stream_sample_t **
 //    RF5C68 write register
 //-------------------------------------------------
 
-READ8_MEMBER( rf5c68_device::rf5c68_r )
+u8 rf5c68_device::rf5c68_r(offs_t offset)
 {
 	uint8_t shift;
 
@@ -176,7 +202,7 @@ READ8_MEMBER( rf5c68_device::rf5c68_r )
 	return (m_chan[(offset & 0x0e) >> 1].addr) >> (shift);
 }
 
-WRITE8_MEMBER( rf5c68_device::rf5c68_w )
+void rf5c68_device::rf5c68_w(offs_t offset, u8 data)
 {
 	pcm_channel &chan = m_chan[m_cbank];
 	int i;
@@ -241,7 +267,7 @@ WRITE8_MEMBER( rf5c68_device::rf5c68_w )
 //    RF5C68 read memory
 //-------------------------------------------------
 
-READ8_MEMBER( rf5c68_device::rf5c68_mem_r )
+u8 rf5c68_device::rf5c68_mem_r(offs_t offset)
 {
 	return m_cache->read_byte(m_wbank | offset);
 }
@@ -251,7 +277,7 @@ READ8_MEMBER( rf5c68_device::rf5c68_mem_r )
 //    RF5C68 write memory
 //-------------------------------------------------
 
-WRITE8_MEMBER( rf5c68_device::rf5c68_mem_w )
+void rf5c68_device::rf5c68_mem_w(offs_t offset, u8 data)
 {
 	m_data->write_byte(m_wbank | offset, data);
 }

@@ -13,6 +13,7 @@
 #include "machine/watchdog.h"
 #include "sound/discrete.h"
 #include "emupal.h"
+#include "tilemap.h"
 
 /* Discrete Sound Input Nodes */
 
@@ -32,10 +33,11 @@ public:
 		m_leds(*this, "led%u", 0U)
 	{ }
 
-	void init_poolshrk();
 	void poolshrk(machine_config &config);
 
-protected:
+	void init_poolshrk();
+
+private:
 	DECLARE_WRITE8_MEMBER(da_latch_w);
 	DECLARE_WRITE8_MEMBER(led_w);
 	DECLARE_WRITE8_MEMBER(watchdog_w);
@@ -48,14 +50,13 @@ protected:
 
 	TILE_GET_INFO_MEMBER(get_tile_info);
 
-	DECLARE_PALETTE_INIT(poolshrk);
+	void poolshrk_palette(palette_device &palette) const;
 
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	virtual void video_start() override;
 	void poolshrk_cpu_map(address_map &map);
 	virtual void machine_start() override { m_leds.resolve(); }
 
-private:
 	required_device<cpu_device> m_maincpu;
 	required_device<watchdog_timer_device> m_watchdog;
 	required_device<gfxdecode_device> m_gfxdecode;

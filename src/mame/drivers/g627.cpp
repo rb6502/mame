@@ -61,17 +61,19 @@ public:
 		, m_digits(*this, "digit%u", 0U)
 	{ }
 
+	void g627(machine_config &config);
+
 	void init_v115();
 	void init_v117();
+
+private:
 	DECLARE_READ8_MEMBER(porta_r);
 	DECLARE_READ8_MEMBER(portb_r);
 	DECLARE_WRITE8_MEMBER(portc_w);
 	DECLARE_WRITE8_MEMBER(disp_w);
 	DECLARE_WRITE8_MEMBER(lamp_w);
-	void g627(machine_config &config);
 	void io_map(address_map &map);
 	void mem_map(address_map &map);
-private:
 	uint8_t m_seg[6];
 	uint8_t m_portc;
 	uint8_t m_motor;
@@ -294,29 +296,29 @@ WRITE8_MEMBER( g627_state::lamp_w )
 	}
 }
 
-MACHINE_CONFIG_START(g627_state::g627)
+void g627_state::g627(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", Z80, 14138000/8)
-	MCFG_DEVICE_PROGRAM_MAP(mem_map)
-	MCFG_DEVICE_IO_MAP(io_map)
+	Z80(config, m_maincpu, 14138000/8);
+	m_maincpu->set_addrmap(AS_PROGRAM, &g627_state::mem_map);
+	m_maincpu->set_addrmap(AS_IO, &g627_state::io_map);
 
-	MCFG_DEVICE_ADD("i8156", I8156, 14138000/8)
-	MCFG_I8155_IN_PORTA_CB(READ8(*this, g627_state, porta_r))
-	MCFG_I8155_IN_PORTB_CB(READ8(*this, g627_state, portb_r))
-	MCFG_I8155_OUT_PORTC_CB(WRITE8(*this, g627_state, portc_w))
-	MCFG_I8155_OUT_TIMEROUT_CB(INPUTLINE("maincpu", INPUT_LINE_NMI))
+	i8156_device &i8156(I8156(config, "i8156", 14138000/8));
+	i8156.in_pa_callback().set(FUNC(g627_state::porta_r));
+	i8156.in_pb_callback().set(FUNC(g627_state::portb_r));
+	i8156.out_pc_callback().set(FUNC(g627_state::portc_w));
+	i8156.out_to_callback().set_inputline(m_maincpu, INPUT_LINE_NMI);
 
-	MCFG_NVRAM_ADD_0FILL("nvram")
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_0);
 
 	/* Sound */
 	genpin_audio(config);
 	SPEAKER(config, "mono").front_center();
-	MCFG_DEVICE_ADD("astrocade", ASTROCADE_IO, 14138000/8) // 0066-117XX audio chip
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 1.0)
+	ASTROCADE_IO(config, "astrocade", 14138000/8).add_route(ALL_OUTPUTS, "mono", 1.0); // 0066-117XX audio chip
 
 	/* Video */
-	MCFG_DEFAULT_LAYOUT(layout_g627)
-MACHINE_CONFIG_END
+	config.set_default_layout(layout_g627);
+}
 
 /*-------------------------------------------------------------------
 / Rotation VIII (09/1978)

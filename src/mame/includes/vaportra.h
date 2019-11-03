@@ -27,18 +27,25 @@ public:
 		, m_deco_tilegen(*this, "tilegen%u", 1U)
 		, m_spritegen(*this, "spritegen")
 		, m_spriteram(*this, "spriteram")
+		, m_gfxdecode(*this, "gfxdecode")
 		, m_palette(*this, "colors")
 		, m_soundlatch(*this, "soundlatch")
 		, m_paletteram(*this, "palette")
 		, m_paletteram_ext(*this, "palette_ext")
 	{ }
 
+	void vaportra(machine_config &config);
+
+	void init_vaportra();
+
+private:
 	/* devices */
 	required_device<cpu_device> m_maincpu;
 	required_device<h6280_device> m_audiocpu;
 	required_device_array<deco16ic_device, 2> m_deco_tilegen;
 	required_device<deco_mxc06_device> m_spritegen;
 	required_device<buffered_spriteram16_device> m_spriteram;
+	required_device<gfxdecode_device> m_gfxdecode;
 	required_device<palette_device> m_palette;
 	required_device<generic_latch_8_device> m_soundlatch;
 
@@ -54,15 +61,15 @@ public:
 	DECLARE_WRITE16_MEMBER(palette_w);
 	DECLARE_WRITE16_MEMBER(palette_ext_w);
 
-	void init_vaportra();
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 
+	void vaportra_colpri_cb(u32 &colour, u32 &pri_mask);
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	void update_palette( int offset );
 
 	DECO16IC_BANK_CB_MEMBER(bank_callback);
-	void vaportra(machine_config &config);
+
 	void main_map(address_map &map);
 	void sound_map(address_map &map);
 };

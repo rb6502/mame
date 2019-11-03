@@ -121,12 +121,12 @@ const res_net_info tnx1_state::obj_mb7052_net_info =
 };
 
 
-PALETTE_INIT_MEMBER(tpp1_state, palette_init)
+void tpp1_state::tnx1_palette(palette_device &palette)
 {
-	/* Two of the PROM address pins are tied together */
+	// Two of the PROM address pins are tied together
 	for (int i = 0; i < 0x20; i++)
 	{
-		int color = (i & 0xf) | ((i & 0x8) << 1);
+		int const color = (i & 0xf) | ((i & 0x8) << 1);
 		m_color_prom[i + 0x20] = m_color_prom[color + 0x20];
 	}
 
@@ -135,12 +135,12 @@ PALETTE_INIT_MEMBER(tpp1_state, palette_init)
 	update_palette();
 }
 
-PALETTE_INIT_MEMBER(tnx1_state, palette_init)
+void tnx1_state::tnx1_palette(palette_device &palette)
 {
-	/* Two of the PROM address pins are tied together and one is not connected... */
+	// Two of the PROM address pins are tied together and one is not connected...
 	for (int i = 0;i < 0x100;i++)
 	{
-		int color = (i & 0x3f) | ((i & 0x20) << 1);
+		int const color = (i & 0x3f) | ((i & 0x20) << 1);
 		m_color_prom_spr[i] = m_color_prom_spr[color];
 	}
 
@@ -245,7 +245,7 @@ void tnx1_state::video_start()
 
 	m_sprite_bitmap = std::make_unique<bitmap_ind16>(512, 512);
 
-	m_fg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(tnx1_state::get_fg_tile_info),this), TILEMAP_SCAN_ROWS, 16, 16, 32, 32);
+	m_fg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(tnx1_state::get_fg_tile_info)), TILEMAP_SCAN_ROWS, 16, 16, 32, 32);
 	m_fg_tilemap->set_transparent_pen(0);
 
 	m_field = 0;

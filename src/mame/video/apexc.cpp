@@ -8,9 +8,12 @@
     Additionally, We display one page of teletyper output.
 */
 
+#include "emu.h"
 #include "includes/apexc.h"
 
-/*static*/ const rgb_t apexc_state::palette_table[] =
+#include <algorithm>
+
+const rgb_t apexc_state::palette_table[] =
 {
 	rgb_t::white(),
 	rgb_t::black(),
@@ -50,9 +53,9 @@ static const rectangle teletyper_scroll_clear_window(
 );
 //static const int var_teletyper_scroll_step = - teletyper_scroll_step;
 
-PALETTE_INIT_MEMBER(apexc_state, apexc)
+void apexc_state::apexc_palette(palette_device &palette) const
 {
-	palette.set_pen_colors(0, palette_table, ARRAY_LENGTH(palette_table));
+	palette.set_pen_colors(0, palette_table);
 }
 
 void apexc_state::video_start()
@@ -127,9 +130,11 @@ void apexc_state::teletyper_linefeed()
 {
 	uint8_t buf[teletyper_window_width];
 
+	assert(teletyper_window_offset_x + teletyper_window_width <= m_bitmap->width());
+	assert(teletyper_window_offset_y + teletyper_window_height <= m_bitmap->height());
 	for (int y = teletyper_window_offset_y; y < teletyper_window_offset_y + teletyper_window_height - teletyper_scroll_step; y++)
 	{
-		extract_scanline8(*m_bitmap, teletyper_window_offset_x, y+teletyper_scroll_step, teletyper_window_width, buf);
+		std::copy_n(&m_bitmap->pix16(y+teletyper_scroll_step, teletyper_window_offset_x), teletyper_window_width, buf);
 		draw_scanline8(*m_bitmap, teletyper_window_offset_x, y, teletyper_window_width, buf, m_palette->pens());
 	}
 
@@ -198,10 +203,10 @@ void apexc_state::teletyper_putchar(int character)
 		}
 
 		/* print character */
-		buffer[0] = ascii_table[m_letters][character];		/* lookup ASCII equivalent in table */
-		buffer[1] = '\0';									/* terminate string */
-		draw_string(*m_bitmap, buffer, 8*m_pos, 176, 0);	/* print char */
-		m_pos++;											/* step carriage forward */
+		buffer[0] = ascii_table[m_letters][character];      /* lookup ASCII equivalent in table */
+		buffer[1] = '\0';                                   /* terminate string */
+		draw_string(*m_bitmap, buffer, 8*m_pos, 176, 0);    /* print char */
+		m_pos++;                                            /* step carriage forward */
 		break;
 	}
 }

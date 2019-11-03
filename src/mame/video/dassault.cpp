@@ -37,12 +37,12 @@ void dassault_state::mixdassaultlayer(bitmap_rgb32 &bitmap, bitmap_ind16* sprite
 	uint16_t* srcline;
 	uint32_t* dstline;
 
-	for (y=cliprect.min_y;y<=cliprect.max_y;y++)
+	for (y=cliprect.top();y<=cliprect.bottom();y++)
 	{
 		srcline=&sprite_bitmap->pix16(y,0);
 		dstline=&bitmap.pix32(y,0);
 
-		for (x=cliprect.min_x;x<=cliprect.max_x;x++)
+		for (x=cliprect.left();x<=cliprect.right();x++)
 		{
 			uint16_t pix = srcline[x];
 
@@ -83,8 +83,7 @@ void dassault_state::mixdassaultlayer(bitmap_rgb32 &bitmap, bitmap_ind16* sprite
 /* are the priorities 100% correct? they're the same as they were before conversion to DECO52 sprite device, but if (for example) you walk to the side of the crates in the first part of the game you appear over them... */
 uint32_t dassault_state::screen_update_dassault(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect)
 {
-	address_space &space = machine().dummy_space();
-	uint16_t flip = m_deco_tilegen[0]->pf_control_r(space, 0, 0xffff);
+	uint16_t flip = m_deco_tilegen[0]->pf_control_r(0);
 	uint16_t priority = m_priority;
 
 	flip_screen_set(BIT(flip, 7));

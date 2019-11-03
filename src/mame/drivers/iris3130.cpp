@@ -43,9 +43,7 @@
 #include "cpu/m68000/m68000.h"
 #include "machine/mc146818.h" /* TOD clock */
 #include "machine/mc68681.h" /* DUART0, DUART1 */
-#include "machine/terminal.h"
 
-#define TERMINAL_TAG "terminal"
 
 class sgi_ip2_state : public driver_device
 {
@@ -62,6 +60,11 @@ public:
 	{
 	}
 
+	void sgi_ip2(machine_config &config);
+
+	void init_sgi_ip2();
+
+private:
 	DECLARE_READ8_MEMBER(sgi_ip2_m_but_r);
 	DECLARE_WRITE8_MEMBER(sgi_ip2_m_but_w);
 	DECLARE_READ16_MEMBER(sgi_ip2_m_quad_r);
@@ -89,20 +92,18 @@ public:
 	DECLARE_WRITE16_MEMBER(sgi_ip2_stkbase_w);
 	DECLARE_READ16_MEMBER(sgi_ip2_stklmt_r);
 	DECLARE_WRITE16_MEMBER(sgi_ip2_stklmt_w);
-	void init_sgi_ip2();
 	DECLARE_WRITE_LINE_MEMBER(duarta_irq_handler);
 	DECLARE_WRITE_LINE_MEMBER(duartb_irq_handler);
 	required_device<cpu_device> m_maincpu;
-	void sgi_ip2(machine_config &config);
 	void sgi_ip2_map(address_map &map);
-protected:
+
 	required_shared_ptr<uint32_t> m_mainram;
 	required_device<mc68681_device> m_duarta;
 	required_device<mc68681_device> m_duartb;
 	required_shared_ptr<uint32_t> m_bss;
 	required_shared_ptr<uint32_t> m_ptmap;
 	required_device<mc146818_device> m_rtc;
-private:
+
 	uint8_t m_mbut;
 	uint16_t m_mquad;
 	uint16_t m_tdbase;
@@ -185,7 +186,7 @@ READ16_MEMBER(sgi_ip2_state::sgi_ip2_swtch_r)
 
 READ8_MEMBER(sgi_ip2_state::sgi_ip2_clock_ctl_r)
 {
-	uint8_t ret = m_rtc->read(space, 1);
+	uint8_t ret = m_rtc->read(1);
 	verboselog(1, "sgi_ip2_clock_ctl_r: %02x\n", ret);
 	return ret;
 }
@@ -193,12 +194,12 @@ READ8_MEMBER(sgi_ip2_state::sgi_ip2_clock_ctl_r)
 WRITE8_MEMBER(sgi_ip2_state::sgi_ip2_clock_ctl_w)
 {
 	verboselog(1, "sgi_ip2_clock_ctl_w: %02x\n", data);
-	m_rtc->write(space, 1, data);
+	m_rtc->write(1, data);
 }
 
 READ8_MEMBER(sgi_ip2_state::sgi_ip2_clock_data_r)
 {
-	uint8_t ret = m_rtc->read(space, 0);
+	uint8_t ret = m_rtc->read(0);
 	verboselog(1, "sgi_ip2_clock_data_r: %02x\n", ret);
 	return ret;
 }
@@ -206,7 +207,7 @@ READ8_MEMBER(sgi_ip2_state::sgi_ip2_clock_data_r)
 WRITE8_MEMBER(sgi_ip2_state::sgi_ip2_clock_data_w)
 {
 	verboselog(1, "sgi_ip2_clock_data_w: %02x\n", data);
-	m_rtc->write(space, 0, data);
+	m_rtc->write(0, data);
 }
 
 
@@ -404,12 +405,12 @@ void sgi_ip2_state::sgi_ip2_map(address_map &map)
 
 WRITE_LINE_MEMBER(sgi_ip2_state::duarta_irq_handler)
 {
-	m_maincpu->set_input_line_and_vector(M68K_IRQ_6, state, M68K_INT_ACK_AUTOVECTOR);
+	m_maincpu->set_input_line(M68K_IRQ_6, state);
 }
 
 WRITE_LINE_MEMBER(sgi_ip2_state::duartb_irq_handler)
 {
-	m_maincpu->set_input_line_and_vector(M68K_IRQ_6, state, M68K_INT_ACK_AUTOVECTOR);
+	m_maincpu->set_input_line(M68K_IRQ_6, state);
 }
 
 static DEVICE_INPUT_DEFAULTS_START( ip2_terminal )
@@ -421,24 +422,25 @@ static DEVICE_INPUT_DEFAULTS_START( ip2_terminal )
 	DEVICE_INPUT_DEFAULTS( "RS232_STOPBITS", 0xff, RS232_STOPBITS_1 )
 DEVICE_INPUT_DEFAULTS_END
 
-MACHINE_CONFIG_START(sgi_ip2_state::sgi_ip2)
+void sgi_ip2_state::sgi_ip2(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", M68020, 16000000)
-	MCFG_DEVICE_PROGRAM_MAP(sgi_ip2_map)
+	M68020(config, m_maincpu, 16000000);
+	m_maincpu->set_addrmap(AS_PROGRAM, &sgi_ip2_state::sgi_ip2_map);
 
-	MCFG_DEVICE_ADD("duart68681a", MC68681, 3.6864_MHz_XTAL) /* Y3 3.6864MHz Xtal ??? copy-over from dectalk */
-	MCFG_MC68681_IRQ_CALLBACK(WRITELINE(*this, sgi_ip2_state, duarta_irq_handler))
-	MCFG_MC68681_B_TX_CALLBACK(WRITELINE("rs232", rs232_port_device, write_txd))
+	MC68681(config, m_duarta, 3.6864_MHz_XTAL); /* Y3 3.6864MHz Xtal ??? copy-over from dectalk */
+	m_duarta->irq_cb().set(FUNC(sgi_ip2_state::duarta_irq_handler));
+	m_duarta->b_tx_cb().set("rs232", FUNC(rs232_port_device::write_txd));
 
-	MCFG_DEVICE_ADD("duart68681b", MC68681, 3.6864_MHz_XTAL) /* Y3 3.6864MHz Xtal ??? copy-over from dectalk */
-	MCFG_MC68681_IRQ_CALLBACK(WRITELINE(*this, sgi_ip2_state, duartb_irq_handler))
+	MC68681(config, m_duartb, 3.6864_MHz_XTAL); /* Y3 3.6864MHz Xtal ??? copy-over from dectalk */
+	m_duartb->irq_cb().set(FUNC(sgi_ip2_state::duartb_irq_handler));
 
-	MCFG_DEVICE_ADD("rtc", MC146818, 4.194304_MHz_XTAL)
+	MC146818(config, m_rtc, 4.194304_MHz_XTAL);
 
-	MCFG_DEVICE_ADD("rs232", RS232_PORT, default_rs232_devices, "terminal")
-	MCFG_RS232_RXD_HANDLER(WRITELINE("duart68681a", mc68681_device, rx_b_w))
-	MCFG_SLOT_OPTION_DEVICE_INPUT_DEFAULTS("terminal", ip2_terminal)
-MACHINE_CONFIG_END
+	rs232_port_device &rs232(RS232_PORT(config, "rs232", default_rs232_devices, "terminal"));
+	rs232.rxd_handler().set(m_duarta, FUNC(mc68681_device::rx_b_w));
+	rs232.set_option_device_input_defaults("terminal", DEVICE_INPUT_DEFAULTS_NAME(ip2_terminal));
+}
 
 static INPUT_PORTS_START( sgi_ip2 )
 	PORT_START("SWTCH")
@@ -493,8 +495,6 @@ void sgi_ip2_state::init_sgi_ip2()
 	uint32_t *src = (uint32_t*)(memregion("maincpu")->base());
 	uint32_t *dst = m_mainram;
 	memcpy(dst, src, 8);
-
-	m_maincpu->reset();
 }
 
 /***************************************************************************

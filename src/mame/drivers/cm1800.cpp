@@ -36,6 +36,7 @@ to be a save command.
 #include "emu.h"
 #include "cpu/i8085/i8085.h"
 #include "machine/ay31015.h"
+#include "machine/clock.h"
 #include "bus/rs232/rs232.h"
 
 
@@ -97,21 +98,25 @@ void cm1800_state::machine_reset()
 	m_uart->write_cs(0);
 }
 
-MACHINE_CONFIG_START(cm1800_state::cm1800)
+void cm1800_state::cm1800(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", I8080, XTAL(2'000'000))
-	MCFG_DEVICE_PROGRAM_MAP(mem_map)
-	MCFG_DEVICE_IO_MAP(io_map)
+	I8080(config, m_maincpu, XTAL(2'000'000));
+	m_maincpu->set_addrmap(AS_PROGRAM, &cm1800_state::mem_map);
+	m_maincpu->set_addrmap(AS_IO, &cm1800_state::io_map);
 
 	/* video hardware */
-	MCFG_DEVICE_ADD("uart", AY51013, 0) // exact uart type is unknown
-	MCFG_AY51013_TX_CLOCK(153600)
-	MCFG_AY51013_RX_CLOCK(153600)
-	MCFG_AY51013_READ_SI_CB(READLINE("rs232", rs232_port_device, rxd_r))
-	MCFG_AY51013_WRITE_SO_CB(WRITELINE("rs232", rs232_port_device, write_txd))
-	MCFG_AY51013_AUTO_RDAV(true)
-	MCFG_DEVICE_ADD("rs232", RS232_PORT, default_rs232_devices, "terminal")
-MACHINE_CONFIG_END
+	AY51013(config, m_uart); // exact uart type is unknown
+	m_uart->read_si_callback().set("rs232", FUNC(rs232_port_device::rxd_r));
+	m_uart->write_so_callback().set("rs232", FUNC(rs232_port_device::write_txd));
+	m_uart->set_auto_rdav(true);
+
+	clock_device &uart_clock(CLOCK(config, "uart_clock", 153600));
+	uart_clock.signal_handler().set(m_uart, FUNC(ay31015_device::write_tcp));
+	uart_clock.signal_handler().append(m_uart, FUNC(ay31015_device::write_rcp));
+
+	RS232_PORT(config, "rs232", default_rs232_devices, "terminal");
+}
 
 /* ROM definition */
 ROM_START( cm1800 )

@@ -76,16 +76,16 @@ public:
 		m_rombank(*this, "rombank")
 	{ }
 
-	void init_virus();
 	void virus(machine_config &config);
 
-protected:
+	void init_virus();
+
+private:
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 
 	void virus_map(address_map &map);
 
-private:
 	required_device<cpu_device> m_maincpu;
 	required_memory_bank m_rombank;
 };
@@ -106,13 +106,14 @@ void acvirus_state::virus_map(address_map &map)
 	map(0x8000, 0xffff).bankr("rombank");
 }
 
-MACHINE_CONFIG_START(acvirus_state::virus)
-	MCFG_DEVICE_ADD("maincpu", I8052, XTAL(12'000'000))
-	MCFG_DEVICE_PROGRAM_MAP(virus_map)
+void acvirus_state::virus(machine_config &config)
+{
+	I8052(config, m_maincpu, XTAL(12'000'000));
+	m_maincpu->set_addrmap(AS_PROGRAM, &acvirus_state::virus_map);
 
 	SPEAKER(config, "lspeaker").front_left();
 	SPEAKER(config, "rspeaker").front_right();
-MACHINE_CONFIG_END
+}
 
 static INPUT_PORTS_START( virus )
 INPUT_PORTS_END

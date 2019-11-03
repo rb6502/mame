@@ -20,15 +20,6 @@
     REGISTER ENUMERATION
 ***************************************************************************/
 
-
-
-#define MCFG_CCPU_EXTERNAL_FUNC(_devcb) \
-	downcast<ccpu_cpu_device &>(*device).set_external_func(DEVCB_##_devcb);
-
-#define MCFG_CCPU_VECTOR_FUNC(d) \
-	downcast<ccpu_cpu_device &>(*device).set_vector_func(d);
-
-
 class ccpu_cpu_device : public cpu_device
 {
 public:
@@ -54,8 +45,9 @@ public:
 	ccpu_cpu_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 	// configuration helpers
-	template <class Object> devcb_base &set_external_func(Object &&cb) { return m_external_input.set_callback(std::forward<Object>(cb)); }
-	template <typename Object> void set_vector_func(Object &&cb) { m_vector_callback = std::forward<Object>(cb); }
+	auto external_func() { return m_external_input.bind(); }
+
+	template <typename... T> void set_vector_func(T &&... args) { m_vector_callback.set(std::forward<T>(args)...); }
 
 	DECLARE_READ8_MEMBER( read_jmi );
 	void wdt_timer_trigger();

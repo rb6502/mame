@@ -20,24 +20,6 @@
 
 
 //**************************************************************************
-//  GIME CONFIG/INTERFACE
-//**************************************************************************
-
-#define MCFG_GIME_HSYNC_CALLBACK    MCFG_MC6847_HSYNC_CALLBACK
-
-#define MCFG_GIME_FSYNC_CALLBACK    MCFG_MC6847_FSYNC_CALLBACK
-
-#define MCFG_GIME_IRQ_CALLBACK(_write) \
-	devcb = &downcast<gime_device &>(*device).set_irq_wr_callback(DEVCB_##_write);
-
-#define MCFG_GIME_FIRQ_CALLBACK(_write) \
-	devcb = &downcast<gime_device &>(*device).set_firq_wr_callback(DEVCB_##_write);
-
-#define MCFG_GIME_FLOATING_BUS_CALLBACK(_read) \
-	devcb = &downcast<gime_device &>(*device).set_floating_bus_rd_callback(DEVCB_##_read);
-
-
-//**************************************************************************
 //  GIME CORE
 //**************************************************************************
 
@@ -46,9 +28,9 @@ class cococart_slot_device;
 class gime_device : public mc6847_friend_device, public sam6883_friend_device_interface
 {
 public:
-	template <class Object> devcb_base &set_irq_wr_callback(Object &&cb) { return m_write_irq.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_firq_wr_callback(Object &&cb) { return m_write_firq.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_floating_bus_rd_callback(Object &&cb) { return m_read_floating_bus.set_callback(std::forward<Object>(cb)); }
+	auto irq_wr_callback() { return m_write_irq.bind(); }
+	auto firq_wr_callback() { return m_write_firq.bind(); }
+	auto floating_bus_rd_callback() { return m_read_floating_bus.bind(); }
 
 	// read/write
 	DECLARE_READ8_MEMBER( bus_r ) { return read(offset); }
@@ -185,7 +167,7 @@ protected:
 	required_device<cococart_slot_device> m_cart_device;
 	memory_bank *               m_read_banks[9];
 	memory_bank *               m_write_banks[9];
-    uint8_t *                   m_rom;
+	uint8_t *                   m_rom;
 	required_memory_region      m_rom_region;
 	uint8_t *                   m_cart_rom;
 	uint32_t                    m_cart_size;
@@ -290,8 +272,8 @@ public:
 		: gime_ntsc_device(mconfig, tag, owner, clock)
 	{
 		m_maincpu.set_tag(std::forward<T>(cpu_tag));
-        m_cpu.set_tag(std::forward<T>(cpu_tag));
-        m_ram.set_tag(std::forward<U>(ram_tag));
+		m_cpu.set_tag(std::forward<T>(cpu_tag));
+		m_ram.set_tag(std::forward<U>(ram_tag));
 		m_cart_device.set_tag(std::forward<V>(ext_tag));
 		m_rom_region.set_tag(std::forward<W>(region_tag));
 	}
@@ -307,8 +289,8 @@ public:
 		: gime_pal_device(mconfig, tag, owner, clock)
 	{
 		m_maincpu.set_tag(std::forward<T>(cpu_tag));
-        m_cpu.set_tag(std::forward<T>(cpu_tag));
-        m_ram.set_tag(std::forward<U>(ram_tag));
+		m_cpu.set_tag(std::forward<T>(cpu_tag));
+		m_ram.set_tag(std::forward<U>(ram_tag));
 		m_cart_device.set_tag(std::forward<V>(ext_tag));
 		m_rom_region.set_tag(std::forward<W>(region_tag));
 	}

@@ -59,7 +59,7 @@ void trucocl_state::device_timer(emu_timer &timer, device_timer_id id, int param
 		m_maincpu->pulse_input_line(INPUT_LINE_NMI, attotime::zero);
 		break;
 	default:
-		assert_always(false, "Unknown id in trucocl_state::device_timer");
+		throw emu_fatalerror("Unknown id in trucocl_state::device_timer");
 	}
 }
 
@@ -69,7 +69,7 @@ WRITE8_MEMBER(trucocl_state::audio_dac_w)
 	uint8_t *rom = memregion("maincpu")->base();
 	int dac_address = ( data & 0xf0 ) << 8;
 	int sel = ( ( (~data) >> 1 ) & 2 ) | ( data & 1 );
-	
+
 	if ( m_cur_dac_address != dac_address )
 	{
 		m_cur_dac_address_index = 0;
@@ -121,7 +121,7 @@ static INPUT_PORTS_START( trucocl )
 	PORT_BIT( 0x20, IP_ACTIVE_LOW, IPT_COIN1 ) //PORT_IMPULSE(60)
 	PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_UNKNOWN )
 	PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_BUTTON1 ) PORT_IMPULSE(2)
-	
+
 	PORT_START("DSW")
 	PORT_DIPNAME( 0x01, 0x01, "Enable BGM fanfare" ) // enables extra BGMs on attract mode
 	PORT_DIPSETTING(    0x00, DEF_STR( No ) )
@@ -176,39 +176,40 @@ void trucocl_state::machine_reset()
 
 INTERRUPT_GEN_MEMBER(trucocl_state::trucocl_interrupt)
 {
-//	if(m_irq_mask)
+//  if(m_irq_mask)
 		device.execute().set_input_line(0, HOLD_LINE);
 }
 
-MACHINE_CONFIG_START(trucocl_state::trucocl)
+void trucocl_state::trucocl(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", Z80, 18432000/6)
-	MCFG_DEVICE_PROGRAM_MAP(main_map)
-	MCFG_DEVICE_IO_MAP(main_io)
-	MCFG_DEVICE_VBLANK_INT_DRIVER("screen", trucocl_state,  trucocl_interrupt)
+	Z80(config, m_maincpu, 18432000/6);
+	m_maincpu->set_addrmap(AS_PROGRAM, &trucocl_state::main_map);
+	m_maincpu->set_addrmap(AS_IO, &trucocl_state::main_io);
+	m_maincpu->set_vblank_int("screen", FUNC(trucocl_state::trucocl_interrupt));
 
-	MCFG_WATCHDOG_ADD("watchdog")
+	WATCHDOG_TIMER(config, "watchdog");
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(0))
-	MCFG_SCREEN_SIZE(32*8, 32*8)
-	MCFG_SCREEN_VISIBLE_AREA(0*8, 32*8-1, 0*8, 32*8-1)
-	MCFG_SCREEN_UPDATE_DRIVER(trucocl_state, screen_update_trucocl)
-	MCFG_SCREEN_PALETTE("palette")
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(60);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(0));
+	screen.set_size(32*8, 32*8);
+	screen.set_visarea(0*8, 32*8-1, 0*8, 32*8-1);
+	screen.set_screen_update(FUNC(trucocl_state::screen_update_trucocl));
+	screen.set_palette("palette");
 
-	MCFG_DEVICE_ADD("gfxdecode", GFXDECODE, "palette", gfx_trucocl)
-	MCFG_PALETTE_ADD("palette", 32)
-	MCFG_PALETTE_INIT_OWNER(trucocl_state, trucocl)
+	GFXDECODE(config, m_gfxdecode, "palette", gfx_trucocl);
+	PALETTE(config, "palette", FUNC(trucocl_state::trucocl_palette), 32);
 
 	/* sound hardware */
 	SPEAKER(config, "speaker").front_center();
 
-	MCFG_DEVICE_ADD("dac", DAC_8BIT_R2R, 0) MCFG_SOUND_ROUTE(ALL_OUTPUTS, "speaker", 0.5) // unknown DAC
-	MCFG_DEVICE_ADD("vref", VOLTAGE_REGULATOR, 0) MCFG_VOLTAGE_REGULATOR_OUTPUT(5.0)
-	MCFG_SOUND_ROUTE(0, "dac", 1.0, DAC_VREF_POS_INPUT) MCFG_SOUND_ROUTE(0, "dac", -1.0, DAC_VREF_NEG_INPUT)
-MACHINE_CONFIG_END
+	DAC_8BIT_R2R(config, "dac", 0).add_route(ALL_OUTPUTS, "speaker", 0.5); // unknown DAC
+	voltage_regulator_device &vref(VOLTAGE_REGULATOR(config, "vref"));
+	vref.add_route(0, "dac", 1.0, DAC_VREF_POS_INPUT);
+	vref.add_route(0, "dac", -1.0, DAC_VREF_NEG_INPUT);
+}
 
 /***************************************************************************
 

@@ -18,19 +18,20 @@ class perq_state : public driver_device
 public:
 	perq_state(const machine_config &mconfig, device_type type, const char *tag)
 		: driver_device(mconfig, type, tag)
-//      , m_maincpu(*this, "maincpu")
+		//      , m_maincpu(*this, "maincpu")
 	{ }
 
-void perq(machine_config &config);
+	void perq(machine_config &config);
 private:
-//  required_device<cpu_device> m_maincpu;
+	//  required_device<cpu_device> m_maincpu;
 };
 
 static INPUT_PORTS_START( perq )
 INPUT_PORTS_END
 
-MACHINE_CONFIG_START(perq_state::perq)
-MACHINE_CONFIG_END
+void perq_state::perq(machine_config &config)
+{
+}
 
 ROM_START( perq )
 	ROM_REGION( 0x10000, "maincpu", 0 )

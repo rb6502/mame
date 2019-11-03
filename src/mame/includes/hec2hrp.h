@@ -43,7 +43,7 @@
 
 #pragma once
 
-#include "imagedev/flopdrv.h"
+#include "imagedev/floppy.h"
 #include "imagedev/cassette.h"
 #include "imagedev/printer.h"
 #include "machine/upd765.h"
@@ -84,24 +84,36 @@ public:
 	hec2hrp_state(const machine_config &mconfig, device_type type, const char *tag)
 		: driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
-		m_disc2cpu(*this, "disc2cpu"),
 		m_cassette(*this, "cassette"),
+		m_printer(*this, "printer"),
+		m_palette(*this, "palette"),
+		m_disc2cpu(*this, "disc2cpu"),
 		m_discrete(*this, "discrete"),
 		m_sn(*this, "sn76477"),
-		m_palette(*this, "palette"),
 		m_videoram(*this,"videoram"),
 		m_hector_videoram(*this,"hector_videoram") ,
 		m_keyboard(*this, "KEY.%u", 0),
 		m_minidisc_fdc(*this, "wd179x"),
 		m_floppy0(*this, "wd179x:0"),
 		m_upd_fdc(*this, "upd765"),
-		m_upd_connector(*this, "upd765:%u", 0U),
-		m_printer(*this, "printer")
+		m_upd_connector(*this, "upd765:%u", 0U)
 	{}
 
-	DECLARE_WRITE8_MEMBER(minidisc_control_w);
+	void hec2mx80(machine_config &config);
+	void hec2hrp(machine_config &config);
+	void hec2hrx(machine_config &config);
+	void hec2mx40(machine_config &config);
+	void hec2mdhrx(machine_config &config);
+	void hec2hr(machine_config &config);
+	void hector_audio(machine_config &config);
 
-	DECLARE_WRITE8_MEMBER(switch_bank_w);
+	void hector_init();
+
+protected:
+	DECLARE_VIDEO_START(hec2hrp);
+	void hector_hr(bitmap_ind16 &bitmap, uint8_t *page, int ymax, int yram);
+	void hector_reset(int hr, int with_d2);
+
 	DECLARE_WRITE8_MEMBER(keyboard_w);
 	DECLARE_READ8_MEMBER(keyboard_r);
 	DECLARE_WRITE8_MEMBER(sn_2000_w);
@@ -110,6 +122,16 @@ public:
 	DECLARE_WRITE8_MEMBER(sn_3000_w);
 	DECLARE_WRITE8_MEMBER(color_a_w);
 	DECLARE_WRITE8_MEMBER(color_b_w);
+
+	required_device<cpu_device> m_maincpu;
+	required_device<cassette_image_device> m_cassette;
+	optional_device<printer_image_device> m_printer;
+	required_device<palette_device> m_palette;
+
+private:
+	DECLARE_WRITE8_MEMBER(minidisc_control_w);
+
+	DECLARE_WRITE8_MEMBER(switch_bank_w);
 	DECLARE_READ8_MEMBER(io_8255_r);
 	DECLARE_WRITE8_MEMBER(io_8255_w);
 	DECLARE_WRITE8_MEMBER(mx40_io_port_w);
@@ -127,23 +149,11 @@ public:
 	DECLARE_READ8_MEMBER(  disc2_io50_port_r);
 	DECLARE_WRITE8_MEMBER( disc2_io50_port_w);
 
-	void hec2mx80(machine_config &config);
-	void hec2hrp(machine_config &config);
-	void hec2hrx(machine_config &config);
-	void hec2mx40(machine_config &config);
-	void hec2mdhrx(machine_config &config);
-	void hec2hr(machine_config &config);
-	void hector_audio(machine_config &config);
-
-protected:
 	DECLARE_FLOPPY_FORMATS(minidisc_formats);
 
-	required_device<cpu_device> m_maincpu;
 	optional_device<cpu_device> m_disc2cpu;
-	required_device<cassette_image_device> m_cassette;
 	required_device<discrete_device> m_discrete;
 	required_device<sn76477_device> m_sn;
-	required_device<palette_device> m_palette;
 	optional_shared_ptr<uint8_t> m_videoram;
 	optional_shared_ptr<uint8_t> m_hector_videoram;
 	required_ioport_array<9> m_keyboard;
@@ -153,8 +163,6 @@ protected:
 
 	optional_device<upd765a_device> m_upd_fdc;
 	optional_device_array<floppy_connector, 2> m_upd_connector;
-
-	optional_device<printer_image_device> m_printer;
 
 	uint8_t m_hector_flag_hr;
 	uint8_t m_hector_flag_80c;
@@ -196,7 +204,6 @@ protected:
 
 	DECLARE_MACHINE_START(hec2hrp);
 	DECLARE_MACHINE_RESET(hec2hrp);
-	DECLARE_VIDEO_START(hec2hrp);
 	DECLARE_MACHINE_START(hec2hrx);
 	DECLARE_MACHINE_RESET(hec2hrx);
 	DECLARE_MACHINE_START(hec2mdhrx);
@@ -213,11 +220,8 @@ protected:
 	void update_state(int Adresse, int Value );
 	void init_sn76477();
 	void update_sound(address_space &space, uint8_t data);
-	void hector_reset(int hr, int with_d2);
-	void hector_init();
 	void init_palette();
 	void hector_80c(bitmap_ind16 &bitmap, uint8_t *page, int ymax, int yram);
-	void hector_hr(bitmap_ind16 &bitmap, uint8_t *page, int ymax, int yram);
 	/*----------- defined in machine/hecdisk2.c -----------*/
 
 	void hector_disc2_reset();

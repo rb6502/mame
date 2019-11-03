@@ -15,11 +15,11 @@
 #include "machine/i8255.h"
 #include "machine/i8243.h"
 #include "machine/nvram.h"
-#include "machine/segaic16.h"
 #include "machine/watchdog.h"
 #include "sound/ym2151.h"
 #include "video/segaic16.h"
 #include "video/sega16sp.h"
+#include "screen.h"
 
 
 // ======================> segas16a_state
@@ -41,10 +41,13 @@ public:
 		, m_watchdog(*this, "watchdog")
 		, m_segaic16vid(*this, "segaic16vid")
 		, m_soundlatch(*this, "soundlatch")
+		, m_screen(*this, "screen")
 		, m_sprites(*this, "sprites")
 		, m_cxdio(*this, "cxdio")
 		, m_workram(*this, "nvram")
 		, m_sound_decrypted_opcodes(*this, "sound_decrypted_opcodes")
+		, m_custom_io_r(*this)
+		, m_custom_io_w(*this)
 		, m_video_control(0)
 		, m_mcu_control(0)
 		, m_n7751_command(0)
@@ -53,10 +56,33 @@ public:
 		, m_last_buttons2(0)
 		, m_read_port(0)
 		, m_mj_input_num(0)
-		, m_mj_inputs(*this, {"MJ0", "MJ1", "MJ2", "MJ3", "MJ4", "MJ5"})
+		, m_mj_inputs(*this, "MJ%u", 0U)
 		, m_lamps(*this, "lamp%u", 0U)
 	{ }
 
+	void system16a_no7751(machine_config &config);
+	void system16a(machine_config &config);
+	void system16a_fd1089a_no7751(machine_config &config);
+	void system16a_fd1089b_no7751(machine_config &config);
+	void system16a_fd1089a(machine_config &config);
+	void system16a_fd1094(machine_config &config);
+	void system16a_no7751p(machine_config &config);
+	void system16a_fd1094_no7751(machine_config &config);
+	void system16a_i8751(machine_config &config);
+	void system16a_fd1089b(machine_config &config);
+	void aceattaca_fd1094(machine_config &config);
+
+	// game-specific driver init
+	void init_generic();
+	void init_dumpmtmt();
+	void init_fantzonep();
+	void init_sjryukoa();
+	void init_aceattaca();
+	void init_passsht16a();
+	void init_mjleague();
+	void init_sdi();
+
+private:
 	// PPI read/write callbacks
 	DECLARE_WRITE8_MEMBER( misc_control_w );
 	DECLARE_WRITE8_MEMBER( tilemap_sound_w );
@@ -71,7 +97,7 @@ public:
 	DECLARE_READ8_MEMBER( sound_data_r );
 	DECLARE_WRITE8_MEMBER( n7751_command_w );
 	DECLARE_WRITE8_MEMBER( n7751_control_w );
-	DECLARE_WRITE8_MEMBER( n7751_rom_offset_w );
+	template<int Shift> void n7751_rom_offset_w(uint8_t data);
 
 	// N7751 sound generator CPU read/write handlers
 	DECLARE_READ8_MEMBER( n7751_rom_r );
@@ -86,31 +112,9 @@ public:
 	// I8751-related VBLANK interrupt handlers
 	DECLARE_WRITE_LINE_MEMBER(i8751_main_cpu_vblank_w);
 
-	// game-specific driver init
-	void init_generic();
-	void init_dumpmtmt();
-	void init_quartet();
-	void init_fantzonep();
-	void init_sjryukoa();
-	void init_aceattaca();
-	void init_passsht16a();
-	void init_mjleague();
-	void init_sdi();
-
 	// video updates
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 
-	void system16a_no7751(machine_config &config);
-	void system16a(machine_config &config);
-	void system16a_fd1089a_no7751(machine_config &config);
-	void system16a_fd1089b_no7751(machine_config &config);
-	void system16a_fd1089a(machine_config &config);
-	void system16a_fd1094(machine_config &config);
-	void system16a_no7751p(machine_config &config);
-	void system16a_fd1094_no7751(machine_config &config);
-	void system16a_i8751(machine_config &config);
-	void system16a_fd1089b(machine_config &config);
-	void aceattaca_fd1094(machine_config &config);
 	void decrypted_opcodes_map(address_map &map);
 	void mcu_io_map(address_map &map);
 	void sound_decrypted_opcodes_map(address_map &map);
@@ -118,7 +122,7 @@ public:
 	void sound_no7751_portmap(address_map &map);
 	void sound_portmap(address_map &map);
 	void system16a_map(address_map &map);
-protected:
+
 	// internal types
 	typedef delegate<void ()> i8751_sim_delegate;
 	typedef delegate<void (uint8_t, uint8_t)> lamp_changed_delegate;
@@ -138,7 +142,6 @@ protected:
 
 	// I8751 simulations
 	void dumpmtmt_i8751_sim();
-	void quartet_i8751_sim();
 
 	// custom I/O handlers
 	DECLARE_READ16_MEMBER( aceattaca_custom_io_r );
@@ -161,6 +164,7 @@ protected:
 	required_device<watchdog_timer_device> m_watchdog;
 	required_device<segaic16_video_device> m_segaic16vid;
 	required_device<generic_latch_8_device> m_soundlatch;
+	required_device<screen_device> m_screen;
 	required_device<sega_sys16a_sprite_device> m_sprites;
 	optional_device<cxd1095_device> m_cxdio;
 
@@ -201,7 +205,7 @@ public:
 	DECLARE_CUSTOM_INPUT_MEMBER(afighter_handl_left_r);
 	DECLARE_CUSTOM_INPUT_MEMBER(afighter_handl_right_r);
 
-protected:
+private:
 	required_ioport     m_accel;
 	required_ioport     m_steer;
 };

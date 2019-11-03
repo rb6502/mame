@@ -23,6 +23,7 @@ TODO:
 #include "machine/74259.h"
 #include "emupal.h"
 #include "screen.h"
+#include "tilemap.h"
 
 static constexpr XTAL MASTER_CLOCK  = 12.096_MHz_XTAL;
 static constexpr XTAL PIXEL_CLOCK   = MASTER_CLOCK / 2;
@@ -31,13 +32,6 @@ static constexpr XTAL PIXEL_CLOCK   = MASTER_CLOCK / 2;
 class flyball_state : public driver_device
 {
 public:
-	enum
-	{
-		TIMER_POT_ASSERT,
-		TIMER_POT_CLEAR,
-		TIMER_QUARTER
-	};
-
 	flyball_state(const machine_config &mconfig, device_type type, const char *tag) :
 		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
@@ -51,7 +45,14 @@ public:
 
 	void flyball(machine_config &config);
 
-protected:
+private:
+	enum
+	{
+		TIMER_POT_ASSERT,
+		TIMER_POT_CLEAR,
+		TIMER_QUARTER
+	};
+
 	DECLARE_READ8_MEMBER(input_r);
 	DECLARE_READ8_MEMBER(scanline_r);
 	DECLARE_READ8_MEMBER(potsense_r);
@@ -70,7 +71,7 @@ protected:
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 	virtual void video_start() override;
-	DECLARE_PALETTE_INIT(flyball);
+	void flyball_palette(palette_device &palette) const;
 
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 
@@ -80,7 +81,6 @@ protected:
 	void flyball_map(address_map &map);
 	virtual void device_timer(emu_timer &timer, device_timer_id id, int param, void *ptr) override;
 
-private:
 	/* devices */
 	required_device<cpu_device> m_maincpu;
 	required_device<gfxdecode_device> m_gfxdecode;
@@ -141,7 +141,7 @@ TILE_GET_INFO_MEMBER(flyball_state::get_tile_info)
 
 void flyball_state::video_start()
 {
-	m_tmap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(flyball_state::get_tile_info),this), tilemap_mapper_delegate(FUNC(flyball_state::get_memory_offset),this), 8, 16, 32, 16);
+	m_tmap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(flyball_state::get_tile_info)), tilemap_mapper_delegate(*this, FUNC(flyball_state::get_memory_offset)), 8, 16, 32, 16);
 }
 
 
@@ -186,7 +186,7 @@ void flyball_state::device_timer(emu_timer &timer, device_timer_id id, int param
 		break;
 
 	default:
-		assert_always(false, "Unknown id in flyball_state::device_timer");
+		throw emu_fatalerror("Unknown id in flyball_state::device_timer");
 	}
 }
 
@@ -287,7 +287,7 @@ WRITE8_MEMBER(flyball_state::pitcher_horz_w)
 WRITE8_MEMBER(flyball_state::misc_w)
 {
 	// address and data lines passed through inverting buffers
-	m_outlatch->write_d0(space, ~offset, ~data);
+	m_outlatch->write_d0(~offset, ~data);
 }
 
 WRITE_LINE_MEMBER(flyball_state::lamp_w)
@@ -406,11 +406,11 @@ static GFXDECODE_START( gfx_flyball )
 GFXDECODE_END
 
 
-PALETTE_INIT_MEMBER(flyball_state, flyball)
+void flyball_state::flyball_palette(palette_device &palette) const
 {
-	palette.set_pen_color(0, rgb_t(0x3F, 0x3F, 0x3F));  /* tiles, ball */
-	palette.set_pen_color(1, rgb_t(0xFF, 0xFF, 0xFF));
-	palette.set_pen_color(2, rgb_t(0xFF ,0xFF, 0xFF));  /* sprites */
+	palette.set_pen_color(0, rgb_t(0x3f, 0x3f, 0x3f));  // tiles, ball
+	palette.set_pen_color(1, rgb_t(0xff, 0xff, 0xff));
+	palette.set_pen_color(2, rgb_t(0xff ,0xff, 0xff));  // sprites
 	palette.set_pen_color(3, rgb_t(0x00, 0x00, 0x00));
 }
 
@@ -460,35 +460,34 @@ void flyball_state::machine_reset()
 }
 
 
-MACHINE_CONFIG_START(flyball_state::flyball)
-
+void flyball_state::flyball(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", M6502, MASTER_CLOCK/16)
-	MCFG_DEVICE_PROGRAM_MAP(flyball_map)
+	M6502(config, m_maincpu, MASTER_CLOCK/16);
+	m_maincpu->set_addrmap(AS_PROGRAM, &flyball_state::flyball_map);
 
-	MCFG_DEVICE_ADD("outlatch", F9334, 0) // F7
-	MCFG_ADDRESSABLE_LATCH_Q7_OUT_CB(WRITELINE(*this, flyball_state, lamp_w)) // 1 player lamp
-	MCFG_ADDRESSABLE_LATCH_Q6_OUT_CB(NOOP) // crowd very loud
-	MCFG_ADDRESSABLE_LATCH_Q5_OUT_CB(NOOP) // footstep off-on
-	MCFG_ADDRESSABLE_LATCH_Q4_OUT_CB(NOOP) // crowd off-on
-	MCFG_ADDRESSABLE_LATCH_Q3_OUT_CB(NOOP) // crowd soft-loud
-	MCFG_ADDRESSABLE_LATCH_Q2_OUT_CB(NOOP) // bat hit
+	F9334(config, m_outlatch); // F7
+	m_outlatch->q_out_cb<2>().set_nop(); // bat hit
+	m_outlatch->q_out_cb<3>().set_nop(); // crowd soft-loud
+	m_outlatch->q_out_cb<4>().set_nop(); // crowd off-on
+	m_outlatch->q_out_cb<5>().set_nop(); // footstep off-on
+	m_outlatch->q_out_cb<6>().set_nop(); // crowd very loud
+	m_outlatch->q_out_cb<7>().set(FUNC(flyball_state::lamp_w)); // 1 player lamp
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_SIZE(256, 262)
-	MCFG_SCREEN_VISIBLE_AREA(0, 255, 0, 239)
-	MCFG_SCREEN_UPDATE_DRIVER(flyball_state, screen_update)
-	MCFG_SCREEN_PALETTE("palette")
-	MCFG_SCREEN_VBLANK_CALLBACK(INPUTLINE("maincpu", INPUT_LINE_NMI))
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_refresh_hz(60);
+	m_screen->set_size(256, 262);
+	m_screen->set_visarea(0, 255, 0, 239);
+	m_screen->set_screen_update(FUNC(flyball_state::screen_update));
+	m_screen->set_palette(m_palette);
+	m_screen->screen_vblank().set_inputline(m_maincpu, INPUT_LINE_NMI);
 
-	MCFG_DEVICE_ADD("gfxdecode", GFXDECODE, "palette", gfx_flyball)
-	MCFG_PALETTE_ADD("palette", 4)
-	MCFG_PALETTE_INIT_OWNER(flyball_state, flyball)
+	GFXDECODE(config, m_gfxdecode, m_palette, gfx_flyball);
+	PALETTE(config, m_palette, FUNC(flyball_state::flyball_palette), 4);
 
 	/* sound hardware */
-MACHINE_CONFIG_END
+}
 
 
 /*************************************

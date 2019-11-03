@@ -15,10 +15,12 @@
 #include "emu.h"
 //include "bus/rs232/rs232.h"
 #include "cpu/z80/z80.h"
-//#include "machine/com8116.h"
+#include "machine/com8116.h"
+#include "machine/input_merger.h"
 #include "machine/nvram.h"
 #include "machine/i8251.h"
 #include "machine/i8255.h"
+#include "machine/v102_kbd.h"
 #include "machine/z80sio.h"
 #include "video/scn2674.h"
 #include "video/upd7220.h"
@@ -32,20 +34,25 @@ public:
 		, m_maincpu(*this, "maincpu")
 		, m_screen(*this, "screen")
 		, m_chargen(*this, "chargen")
+		, m_usart(*this, "usart")
 	{ }
 
 	void v550(machine_config &config);
 
-	u32 screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect) { return 0; }
 private:
+	u32 screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect) { return 0; }
+
 	void mem_map(address_map &map);
 	void io_map(address_map &map);
+	void pvtc_char_map(address_map &map);
+	void pvtc_attr_map(address_map &map);
 
 	virtual void machine_start() override;
 
 	required_device<cpu_device> m_maincpu;
 	required_device<screen_device> m_screen;
 	required_region_ptr<u8> m_chargen;
+	required_device<i8251_device> m_usart;
 };
 
 
@@ -60,15 +67,27 @@ void v550_state::io_map(address_map &map)
 {
 	map.global_mask(0xff);
 	map(0x00, 0x01).rw("gdc", FUNC(upd7220_device::read), FUNC(upd7220_device::write));
+	map(0x10, 0x10).w("brg1", FUNC(com8116_device::stt_str_w));
 	map(0x20, 0x23).rw("ppi", FUNC(i8255_device::read), FUNC(i8255_device::write));
-	map(0x30, 0x30).rw("usart", FUNC(i8251_device::data_r), FUNC(i8251_device::data_w));
-	map(0x31, 0x31).rw("usart", FUNC(i8251_device::status_r), FUNC(i8251_device::control_w));
+	map(0x30, 0x31).rw(m_usart, FUNC(i8251_device::read), FUNC(i8251_device::write));
 	map(0x40, 0x40).rw("mpsc", FUNC(upd7201_new_device::da_r), FUNC(upd7201_new_device::da_w));
 	map(0x41, 0x41).rw("mpsc", FUNC(upd7201_new_device::ca_r), FUNC(upd7201_new_device::ca_w));
 	map(0x48, 0x48).rw("mpsc", FUNC(upd7201_new_device::db_r), FUNC(upd7201_new_device::db_w));
 	map(0x49, 0x49).rw("mpsc", FUNC(upd7201_new_device::cb_r), FUNC(upd7201_new_device::cb_w));
+	map(0x50, 0x50).w("brg2", FUNC(com8116_device::stt_str_w));
 	map(0x60, 0x67).rw("pvtc", FUNC(scn2672_device::read), FUNC(scn2672_device::write));
-	map(0x70, 0x70).nopw(); // DRAM refresh address?
+	map(0x70, 0x70).rw("pvtc", FUNC(scn2672_device::buffer_r), FUNC(scn2672_device::buffer_w));
+	map(0x71, 0x71).rw("pvtc", FUNC(scn2672_device::attr_buffer_r), FUNC(scn2672_device::attr_buffer_w));
+}
+
+void v550_state::pvtc_char_map(address_map &map)
+{
+	map(0x0000, 0x0fff).ram();
+}
+
+void v550_state::pvtc_attr_map(address_map &map)
+{
+	map(0x0000, 0x0fff).ram();
 }
 
 
@@ -78,38 +97,56 @@ INPUT_PORTS_END
 
 void v550_state::machine_start()
 {
-	subdevice<i8251_device>("usart")->write_cts(0);
+	m_usart->write_cts(0);
 }
 
-MACHINE_CONFIG_START(v550_state::v550)
-	MCFG_DEVICE_ADD("maincpu", Z80, 4'000'000) // NEC D780C
-	MCFG_DEVICE_PROGRAM_MAP(mem_map)
-	MCFG_DEVICE_IO_MAP(io_map)
+void v550_state::v550(machine_config &config)
+{
+	Z80(config, m_maincpu, 34.846_MHz_XTAL / 16); // NEC D780C (2.177875 MHz verified)
+	m_maincpu->set_addrmap(AS_PROGRAM, &v550_state::mem_map);
+	m_maincpu->set_addrmap(AS_IO, &v550_state::io_map);
 
-	MCFG_NVRAM_ADD_0FILL("nvram") // NEC D446-2 + battery
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_0); // NEC D444C-2 + battery
 
-	MCFG_DEVICE_ADD("gdc", UPD7220, 4'000'000) // NEC D7220D
-	MCFG_VIDEO_SET_SCREEN("screen")
+	upd7220_device &gdc(UPD7220(config, "gdc", 34.846_MHz_XTAL / 16)); // NEC D7220D (2.177875 MHz verified)
+	gdc.set_screen("screen");
 
-	MCFG_DEVICE_ADD("ppi", I8255, 0) // NEC D8255AC-5
+	I8255(config, "ppi"); // NEC D8255AC-5
 
-	MCFG_DEVICE_ADD("usart", I8251, 4'000'000) // NEC D8251AC
+	I8251(config, m_usart, 34.846_MHz_XTAL / 16); // NEC D8251AC
+	m_usart->txd_handler().set("keyboard", FUNC(v550_keyboard_device::write_rxd));
+	m_usart->rxrdy_handler().set("mainint", FUNC(input_merger_device::in_w<1>));
 
-	MCFG_DEVICE_ADD("mpsc", UPD7201_NEW, 4'000'000) // NEC D7201C
-	MCFG_Z80SIO_OUT_INT_CB(INPUTLINE("maincpu", INPUT_LINE_IRQ0))
+	upd7201_new_device& mpsc(UPD7201_NEW(config, "mpsc", 34.846_MHz_XTAL / 16)); // NEC D7201C
+	mpsc.out_int_callback().set("mainint", FUNC(input_merger_device::in_w<0>));
 
-	//MCFG_DEVICE_ADD("brg1", COM8116_020, 5068800)
-	//MCFG_DEVICE_ADD("brg2", COM8116_020, 5068800)
+	INPUT_MERGER_ANY_HIGH(config, "mainint").output_handler().set_inputline(m_maincpu, INPUT_LINE_IRQ0);
 
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_RAW_PARAMS(16'248'600, 918, 0, 720, 295, 0, 272)
-	MCFG_SCREEN_UPDATE_DRIVER(v550_state, screen_update)
+	com8116_device &brg1(COM8116_020(config, "brg1", 1.8432_MHz_XTAL)); // SMC COM8116T-020
+	brg1.ft_handler().set("mpsc", FUNC(upd7201_new_device::txcb_w));
+	brg1.ft_handler().append("mpsc", FUNC(upd7201_new_device::rxcb_w));
+	brg1.fr_handler().set("usart", FUNC(i8251_device::write_txc));
+	brg1.fr_handler().append("usart", FUNC(i8251_device::write_rxc));
 
-	MCFG_DEVICE_ADD("pvtc", SCN2672, 1'805'400)
-	MCFG_SCN2672_CHARACTER_WIDTH(9)
-	MCFG_SCN2672_INTR_CALLBACK(INPUTLINE("maincpu", INPUT_LINE_NMI))
-	MCFG_VIDEO_SET_SCREEN("screen")
-MACHINE_CONFIG_END
+	com8116_device &brg2(COM8116_020(config, "brg2", 1.8432_MHz_XTAL)); // SMC COM8116T-020
+	brg2.ft_handler().set("mpsc", FUNC(upd7201_new_device::txca_w));
+	brg2.fr_handler().set("mpsc", FUNC(upd7201_new_device::rxca_w));
+
+	v550_keyboard_device &keyboard(V550_KEYBOARD(config, "keyboard"));
+	keyboard.txd_callback().set(m_usart, FUNC(i8251_device::write_rxd));
+
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_raw(34.846_MHz_XTAL, 19 * 102, 0, 19 * 80, 295, 0, 272);
+	m_screen->set_screen_update(FUNC(v550_state::screen_update));
+
+	scn2672_device &pvtc(SCN2672(config, "pvtc", 34.846_MHz_XTAL / 19));
+	pvtc.set_addrmap(0, &v550_state::pvtc_char_map);
+	pvtc.set_addrmap(1, &v550_state::pvtc_attr_map);
+	pvtc.set_character_width(19);
+	pvtc.intr_callback().set_inputline(m_maincpu, INPUT_LINE_NMI);
+	pvtc.set_screen("screen");
+	// SCB2673 clock verified at 17.423 MHz
+}
 
 
 ROM_START( v550 )

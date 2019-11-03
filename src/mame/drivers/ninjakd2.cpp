@@ -313,8 +313,8 @@ READ8_MEMBER(omegaf_state::io_protection_r)
 		case 1: // dip switches
 			switch (offset)
 			{
-				case 0: result = ioport("DIPSW1")->read(); break;
-				case 1: result = ioport("DIPSW2")->read(); break;
+				case 0:
+				case 1: result = m_dsw_io[offset & 1]->read(); break;
 				case 2: result = 0x02; break;
 			}
 			break;
@@ -322,8 +322,8 @@ READ8_MEMBER(omegaf_state::io_protection_r)
 		case 2: // player inputs
 			switch (offset)
 			{
-				case 0: result = ioport("PAD1")->read(); break;
-				case 1: result = ioport("PAD2")->read(); break;
+				case 0:
+				case 1: result = m_pad_io[offset & 1]->read(); break;
 				case 2: result = 0x01; break;
 			}
 			break;
@@ -350,7 +350,7 @@ WRITE8_MEMBER(omegaf_state::io_protection_w)
 
 WRITE8_MEMBER(ninjakd2_state::ninjakd2_bankselect_w)
 {
-	membank("bank1")->set_entry(data & m_rom_bank_mask);
+	m_mainbank->set_entry(data & m_rom_bank_mask);
 }
 
 WRITE8_MEMBER(ninjakd2_state::ninjakd2_soundreset_w)
@@ -362,6 +362,33 @@ WRITE8_MEMBER(ninjakd2_state::ninjakd2_soundreset_w)
 	flip_screen_set(data & 0x80);
 
 	// other bits unused
+}
+
+template<int Layer>
+WRITE8_MEMBER(robokid_state::robokid_bg_bank_w)
+{
+	m_robokid_bg_bank[Layer] = data & m_vram_bank_mask;
+}
+
+template<int Layer>
+READ8_MEMBER(robokid_state::robokid_bg_videoram_r)
+{
+	return m_robokid_bg_videoram[Layer][(m_robokid_bg_bank[Layer] << 10) | offset];
+}
+
+template<int Layer>
+WRITE8_MEMBER(robokid_state::robokid_bg_videoram_w)
+{
+	int const address = (m_robokid_bg_bank[Layer] << 10 ) | offset;
+
+	m_robokid_bg_videoram[Layer][address] = data;
+	m_robokid_tilemap[Layer]->mark_tile_dirty(address >> 1);
+}
+
+template<int Layer>
+WRITE8_MEMBER(robokid_state::robokid_bg_ctrl_w)
+{
+	bg_ctrl(offset, data, m_robokid_tilemap[Layer]);
 }
 
 // omega fighter compares port $c1e7 with and $e0
@@ -383,7 +410,7 @@ READ8_MEMBER(omegaf_state::unk_r)
 void ninjakd2_state::ninjakd2_main_cpu(address_map &map)
 {
 	map(0x0000, 0x7fff).rom();
-	map(0x8000, 0xbfff).bankr("bank1");
+	map(0x8000, 0xbfff).bankr("mainbank");
 	map(0xc000, 0xc000).portr("KEYCOIN");
 	map(0xc001, 0xc001).portr("PAD1");
 	map(0xc002, 0xc002).portr("PAD2");
@@ -404,11 +431,11 @@ void ninjakd2_state::ninjakd2_main_cpu(address_map &map)
 void mnight_state::mnight_main_cpu(address_map &map)
 {
 	map(0x0000, 0x7fff).rom();
-	map(0x8000, 0xbfff).bankr("bank1");
+	map(0x8000, 0xbfff).bankr("mainbank");
 	map(0xc000, 0xd9ff).ram();
 	map(0xda00, 0xdfff).ram().share("spriteram");
-	map(0xe000, 0xe7ff).ram().w(FUNC(ninjakd2_state::ninjakd2_bgvideoram_w)).share("bg_videoram");
-	map(0xe800, 0xefff).ram().w(FUNC(ninjakd2_state::ninjakd2_fgvideoram_w)).share("fg_videoram");
+	map(0xe000, 0xe7ff).ram().w(FUNC(mnight_state::ninjakd2_bgvideoram_w)).share("bg_videoram");
+	map(0xe800, 0xefff).ram().w(FUNC(mnight_state::ninjakd2_fgvideoram_w)).share("fg_videoram");
 	map(0xf000, 0xf5ff).ram().w(m_palette, FUNC(palette_device::write8)).share("palette");
 	map(0xf800, 0xf800).portr("KEYCOIN");
 	map(0xf801, 0xf801).portr("PAD1");
@@ -416,33 +443,33 @@ void mnight_state::mnight_main_cpu(address_map &map)
 	map(0xf803, 0xf803).portr("DIPSW1");
 	map(0xf804, 0xf804).portr("DIPSW2");
 	map(0xfa00, 0xfa00).w("soundlatch", FUNC(generic_latch_8_device::write));
-	map(0xfa01, 0xfa01).w(FUNC(ninjakd2_state::ninjakd2_soundreset_w));
-	map(0xfa02, 0xfa02).w(FUNC(ninjakd2_state::ninjakd2_bankselect_w));
-	map(0xfa03, 0xfa03).w(FUNC(ninjakd2_state::ninjakd2_sprite_overdraw_w));
-	map(0xfa08, 0xfa0c).w(FUNC(ninjakd2_state::ninjakd2_bg_ctrl_w));
+	map(0xfa01, 0xfa01).w(FUNC(mnight_state::ninjakd2_soundreset_w));
+	map(0xfa02, 0xfa02).w(FUNC(mnight_state::ninjakd2_bankselect_w));
+	map(0xfa03, 0xfa03).w(FUNC(mnight_state::ninjakd2_sprite_overdraw_w));
+	map(0xfa08, 0xfa0c).w(FUNC(mnight_state::ninjakd2_bg_ctrl_w));
 }
 
 
 void robokid_state::robokid_main_cpu(address_map &map)
 {
 	map(0x0000, 0x7fff).rom();
-	map(0x8000, 0xbfff).bankr("bank1");
+	map(0x8000, 0xbfff).bankr("mainbank");
 	map(0xc000, 0xc7ff).ram().w(m_palette, FUNC(palette_device::write8)).share("palette");
-	map(0xc800, 0xcfff).ram().w(FUNC(ninjakd2_state::ninjakd2_fgvideoram_w)).share("fg_videoram");
-	map(0xd000, 0xd3ff).rw(FUNC(robokid_state::robokid_bg2_videoram_r), FUNC(robokid_state::robokid_bg2_videoram_w));   // banked
-	map(0xd400, 0xd7ff).rw(FUNC(robokid_state::robokid_bg1_videoram_r), FUNC(robokid_state::robokid_bg1_videoram_w));   // banked
-	map(0xd800, 0xdbff).rw(FUNC(robokid_state::robokid_bg0_videoram_r), FUNC(robokid_state::robokid_bg0_videoram_w));   // banked
+	map(0xc800, 0xcfff).ram().w(FUNC(robokid_state::ninjakd2_fgvideoram_w)).share("fg_videoram");
+	map(0xd000, 0xd3ff).rw(FUNC(robokid_state::robokid_bg_videoram_r<2>), FUNC(robokid_state::robokid_bg_videoram_w<2>));   // banked
+	map(0xd400, 0xd7ff).rw(FUNC(robokid_state::robokid_bg_videoram_r<1>), FUNC(robokid_state::robokid_bg_videoram_w<1>));   // banked
+	map(0xd800, 0xdbff).rw(FUNC(robokid_state::robokid_bg_videoram_r<0>), FUNC(robokid_state::robokid_bg_videoram_w<0>));   // banked
 	map(0xdc00, 0xdc00).portr("KEYCOIN").w("soundlatch", FUNC(generic_latch_8_device::write));
-	map(0xdc01, 0xdc01).portr("PAD1").w(FUNC(ninjakd2_state::ninjakd2_soundreset_w));
-	map(0xdc02, 0xdc02).portr("PAD2").w(FUNC(ninjakd2_state::ninjakd2_bankselect_w));
-	map(0xdc03, 0xdc03).portr("DIPSW1").w(FUNC(ninjakd2_state::ninjakd2_sprite_overdraw_w));
+	map(0xdc01, 0xdc01).portr("PAD1").w(FUNC(robokid_state::ninjakd2_soundreset_w));
+	map(0xdc02, 0xdc02).portr("PAD2").w(FUNC(robokid_state::ninjakd2_bankselect_w));
+	map(0xdc03, 0xdc03).portr("DIPSW1").w(FUNC(robokid_state::ninjakd2_sprite_overdraw_w));
 	map(0xdc04, 0xdc04).portr("DIPSW2");
-	map(0xdd00, 0xdd04).w(FUNC(robokid_state::robokid_bg0_ctrl_w));
-	map(0xdd05, 0xdd05).w(FUNC(robokid_state::robokid_bg0_bank_w));
-	map(0xde00, 0xde04).w(FUNC(robokid_state::robokid_bg1_ctrl_w));
-	map(0xde05, 0xde05).w(FUNC(robokid_state::robokid_bg1_bank_w));
-	map(0xdf00, 0xdf04).w(FUNC(robokid_state::robokid_bg2_ctrl_w));
-	map(0xdf05, 0xdf05).w(FUNC(robokid_state::robokid_bg2_bank_w));
+	map(0xdd00, 0xdd04).w(FUNC(robokid_state::robokid_bg_ctrl_w<0>));
+	map(0xdd05, 0xdd05).w(FUNC(robokid_state::robokid_bg_bank_w<0>));
+	map(0xde00, 0xde04).w(FUNC(robokid_state::robokid_bg_ctrl_w<1>));
+	map(0xde05, 0xde05).w(FUNC(robokid_state::robokid_bg_bank_w<1>));
+	map(0xdf00, 0xdf04).w(FUNC(robokid_state::robokid_bg_ctrl_w<2>));
+	map(0xdf05, 0xdf05).w(FUNC(robokid_state::robokid_bg_bank_w<2>));
 	map(0xe000, 0xf9ff).ram();
 	map(0xfa00, 0xffff).ram().share("spriteram");
 }
@@ -451,24 +478,24 @@ void robokid_state::robokid_main_cpu(address_map &map)
 void omegaf_state::omegaf_main_cpu(address_map &map)
 {
 	map(0x0000, 0x7fff).rom();
-	map(0x8000, 0xbfff).bankr("bank1");
+	map(0x8000, 0xbfff).bankr("mainbank");
 	map(0xc000, 0xc000).portr("KEYCOIN").w("soundlatch", FUNC(generic_latch_8_device::write));
 	map(0xc001, 0xc003).r(FUNC(omegaf_state::io_protection_r));
-	map(0xc001, 0xc001).w(FUNC(ninjakd2_state::ninjakd2_soundreset_w));
-	map(0xc002, 0xc002).w(FUNC(ninjakd2_state::ninjakd2_bankselect_w));
-	map(0xc003, 0xc003).w(FUNC(ninjakd2_state::ninjakd2_sprite_overdraw_w));
+	map(0xc001, 0xc001).w(FUNC(omegaf_state::ninjakd2_soundreset_w));
+	map(0xc002, 0xc002).w(FUNC(omegaf_state::ninjakd2_bankselect_w));
+	map(0xc003, 0xc003).w(FUNC(omegaf_state::ninjakd2_sprite_overdraw_w));
 	map(0xc004, 0xc006).w(FUNC(omegaf_state::io_protection_w));
-	map(0xc100, 0xc104).w(FUNC(omegaf_state::robokid_bg0_ctrl_w));
-	map(0xc105, 0xc105).w(FUNC(omegaf_state::robokid_bg0_bank_w));
+	map(0xc100, 0xc104).w(FUNC(omegaf_state::robokid_bg_ctrl_w<0>));
+	map(0xc105, 0xc105).w(FUNC(omegaf_state::robokid_bg_bank_w<0>));
 	map(0xc1e7, 0xc1e7).r(FUNC(omegaf_state::unk_r)); // see notes
-	map(0xc200, 0xc204).w(FUNC(omegaf_state::robokid_bg1_ctrl_w));
-	map(0xc205, 0xc205).w(FUNC(omegaf_state::robokid_bg1_bank_w));
-	map(0xc300, 0xc304).w(FUNC(omegaf_state::robokid_bg2_ctrl_w));
-	map(0xc305, 0xc305).w(FUNC(omegaf_state::robokid_bg2_bank_w));
-	map(0xc400, 0xc7ff).rw(FUNC(omegaf_state::robokid_bg0_videoram_r), FUNC(omegaf_state::robokid_bg0_videoram_w));   // banked
-	map(0xc800, 0xcbff).rw(FUNC(omegaf_state::robokid_bg1_videoram_r), FUNC(omegaf_state::robokid_bg1_videoram_w));   // banked
-	map(0xcc00, 0xcfff).rw(FUNC(omegaf_state::robokid_bg2_videoram_r), FUNC(omegaf_state::robokid_bg2_videoram_w));   // banked
-	map(0xd000, 0xd7ff).ram().w(FUNC(ninjakd2_state::ninjakd2_fgvideoram_w)).share("fg_videoram");
+	map(0xc200, 0xc204).w(FUNC(omegaf_state::robokid_bg_ctrl_w<1>));
+	map(0xc205, 0xc205).w(FUNC(omegaf_state::robokid_bg_bank_w<1>));
+	map(0xc300, 0xc304).w(FUNC(omegaf_state::robokid_bg_ctrl_w<2>));
+	map(0xc305, 0xc305).w(FUNC(omegaf_state::robokid_bg_bank_w<2>));
+	map(0xc400, 0xc7ff).rw(FUNC(omegaf_state::robokid_bg_videoram_r<0>), FUNC(omegaf_state::robokid_bg_videoram_w<0>));   // banked
+	map(0xc800, 0xcbff).rw(FUNC(omegaf_state::robokid_bg_videoram_r<1>), FUNC(omegaf_state::robokid_bg_videoram_w<1>));   // banked
+	map(0xcc00, 0xcfff).rw(FUNC(omegaf_state::robokid_bg_videoram_r<2>), FUNC(omegaf_state::robokid_bg_videoram_w<2>));   // banked
+	map(0xd000, 0xd7ff).ram().w(FUNC(omegaf_state::ninjakd2_fgvideoram_w)).share("fg_videoram");
 	map(0xd800, 0xdfff).ram().w(m_palette, FUNC(palette_device::write8)).share("palette");
 	map(0xe000, 0xf9ff).ram();
 	map(0xfa00, 0xffff).ram().share("spriteram");
@@ -854,51 +881,18 @@ INPUT_PORTS_END
  *
  *************************************/
 
-static const gfx_layout layout8x8 =
-{
-	8,8,
-	RGN_FRAC(1,1),
-	4,
-	{ STEP4(0,1) },
-	{ STEP8(0,4) },
-	{ STEP8(0,32) },
-	32*8
-};
-
-static const gfx_layout layout16x16 =
-{
-	16,16,
-	RGN_FRAC(1,1),
-	4,
-	{ STEP4(0,1) },
-	{ STEP8(0,4), STEP8(32*8,4) },
-	{ STEP8(0,32), STEP8(64*8,32) },
-	128*8
-};
-
-static const gfx_layout robokid_layout16x16 =
-{
-	16,16,
-	RGN_FRAC(1,1),
-	4,
-	{ STEP4(0,1) },
-	{ STEP8(0,4), STEP8(64*8,4) },
-	{ STEP16(0,32) },
-	128*8
-};
-
 static GFXDECODE_START( gfx_ninjakd2 )
-	GFXDECODE_ENTRY( "gfx1", 0, layout8x8,    0x200, 16)    // fg
-	GFXDECODE_ENTRY( "gfx2", 0, layout16x16,  0x100, 16)    // sprites
-	GFXDECODE_ENTRY( "gfx3", 0, layout16x16,  0x000, 16)    // bg
+	GFXDECODE_ENTRY( "gfx1", 0, gfx_8x8x4_packed_msb,               0x200, 16)    // fg
+	GFXDECODE_ENTRY( "gfx2", 0, gfx_8x8x4_row_2x2_group_packed_msb, 0x100, 16)    // sprites
+	GFXDECODE_ENTRY( "gfx3", 0, gfx_8x8x4_row_2x2_group_packed_msb, 0x000, 16)    // bg
 GFXDECODE_END
 
 static GFXDECODE_START( gfx_robokid )
-	GFXDECODE_ENTRY( "gfx1", 0, layout8x8,           0x300, 16) // fg
-	GFXDECODE_ENTRY( "gfx2", 0, robokid_layout16x16, 0x200, 16) // sprites
-	GFXDECODE_ENTRY( "gfx3", 0, robokid_layout16x16, 0x000, 16) // bg0
-	GFXDECODE_ENTRY( "gfx4", 0, robokid_layout16x16, 0x000, 16) // bg1
-	GFXDECODE_ENTRY( "gfx5", 0, robokid_layout16x16, 0x000, 16) // bg2
+	GFXDECODE_ENTRY( "gfx1", 0, gfx_8x8x4_packed_msb,               0x300, 16) // fg
+	GFXDECODE_ENTRY( "gfx2", 0, gfx_8x8x4_col_2x2_group_packed_msb, 0x200, 16) // sprites
+	GFXDECODE_ENTRY( "gfx3", 0, gfx_8x8x4_col_2x2_group_packed_msb, 0x000, 16) // bg0
+	GFXDECODE_ENTRY( "gfx4", 0, gfx_8x8x4_col_2x2_group_packed_msb, 0x000, 16) // bg1
+	GFXDECODE_ENTRY( "gfx5", 0, gfx_8x8x4_col_2x2_group_packed_msb, 0x000, 16) // bg2
 GFXDECODE_END
 
 
@@ -910,17 +904,17 @@ GFXDECODE_END
 
 void ninjakd2_state::machine_start()
 {
+	/* initialize main Z80 bank */
+	int num_banks = (memregion("maincpu")->bytes() - 0x10000) / 0x4000;
+	m_mainbank->configure_entries(0, num_banks, memregion("maincpu")->base() + 0x10000, 0x4000);
 	// ...
+
+	m_rom_bank_mask = num_banks - 1;
 }
 
 void ninjakd2_state::machine_reset()
 {
-	/* initialize main Z80 bank */
-	int num_banks = (memregion("maincpu")->bytes() - 0x10000) / 0x4000;
-	membank("bank1")->configure_entries(0, num_banks, memregion("maincpu")->base() + 0x10000, 0x4000);
-	membank("bank1")->set_entry(0);
-
-	m_rom_bank_mask = num_banks - 1;
+	m_mainbank->set_entry(0);
 }
 
 void omegaf_state::machine_start()
@@ -933,139 +927,133 @@ void omegaf_state::machine_start()
 void omegaf_state::machine_reset()
 {
 	io_protection_reset();
-	
+
 	ninjakd2_state::machine_reset();
 }
 
 /*****************************************************************************/
 
-MACHINE_CONFIG_START(ninjakd2_state::ninjakd2_core)
-
+void ninjakd2_state::ninjakd2_core(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", Z80, MAIN_CLOCK_12/2)       /* verified */
-	MCFG_DEVICE_PROGRAM_MAP(ninjakd2_main_cpu)
+	Z80(config, m_maincpu, MAIN_CLOCK_12/2); /* verified */
+	m_maincpu->set_addrmap(AS_PROGRAM, &ninjakd2_state::ninjakd2_main_cpu);
 
-	MCFG_DEVICE_ADD("soundcpu", Z80, MAIN_CLOCK_5)     /* verified */
-	MCFG_DEVICE_PROGRAM_MAP(ninjakd2_sound_cpu)
-	MCFG_DEVICE_IO_MAP(ninjakd2_sound_io)
+	Z80(config, m_soundcpu, MAIN_CLOCK_5);     /* verified */
+	m_soundcpu->set_addrmap(AS_PROGRAM, &ninjakd2_state::ninjakd2_sound_cpu);
+	m_soundcpu->set_addrmap(AS_IO, &ninjakd2_state::ninjakd2_sound_io);
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(59.61)    /* verified on pcb */
-	MCFG_SCREEN_SIZE(32*8, 32*8)
-	MCFG_SCREEN_VISIBLE_AREA(0*8, 32*8-1, 4*8, 28*8-1)
-	MCFG_SCREEN_UPDATE_DRIVER(ninjakd2_state, screen_update_ninjakd2)
-	MCFG_SCREEN_VBLANK_CALLBACK(WRITELINE(*this, ninjakd2_state, screen_vblank_ninjakd2))
-	MCFG_SCREEN_PALETTE("palette")
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_refresh_hz(59.61);    /* verified on pcb */
+	m_screen->set_size(32*8, 32*8);
+	m_screen->set_visarea(0*8, 32*8-1, 4*8, 28*8-1);
+	m_screen->set_screen_update(FUNC(ninjakd2_state::screen_update_ninjakd2));
+	m_screen->screen_vblank().set(FUNC(ninjakd2_state::screen_vblank_ninjakd2));
+	m_screen->set_palette(m_palette);
 
-	MCFG_DEVICE_ADD("gfxdecode", GFXDECODE, "palette", gfx_ninjakd2)
-	MCFG_PALETTE_ADD("palette", 0x300)
-	MCFG_PALETTE_FORMAT(RRRRGGGGBBBBxxxx)
-	MCFG_PALETTE_ENDIANNESS(ENDIANNESS_BIG)
+	GFXDECODE(config, m_gfxdecode, m_palette, gfx_ninjakd2);
+	PALETTE(config, m_palette).set_format(palette_device::RGBx_444, 0x300);
+	m_palette->set_endianness(ENDIANNESS_BIG);
 
 	/* sound hardware */
 	SPEAKER(config, "mono").front_center();
 
-	MCFG_GENERIC_LATCH_8_ADD("soundlatch")
+	GENERIC_LATCH_8(config, "soundlatch");
 
-	MCFG_DEVICE_ADD("2203.1", YM2203, MAIN_CLOCK_12/8)       /* verified */
-	MCFG_YM2203_IRQ_HANDLER(INPUTLINE("soundcpu", 0))
-	MCFG_SOUND_ROUTE(0, "mono", 0.10)
-	MCFG_SOUND_ROUTE(1, "mono", 0.10)
-	MCFG_SOUND_ROUTE(2, "mono", 0.10)
-	MCFG_SOUND_ROUTE(3, "mono", 0.50)
+	ym2203_device &ym2203_1(YM2203(config, "2203.1", MAIN_CLOCK_12/8)); /* verified */
+	ym2203_1.irq_handler().set_inputline("soundcpu", 0);
+	ym2203_1.add_route(0, "mono", 0.10);
+	ym2203_1.add_route(1, "mono", 0.10);
+	ym2203_1.add_route(2, "mono", 0.10);
+	ym2203_1.add_route(3, "mono", 0.50);
 
-	MCFG_DEVICE_ADD("2203.2", YM2203, MAIN_CLOCK_12/8)       /* verified */
-	MCFG_SOUND_ROUTE(0, "mono", 0.10)
-	MCFG_SOUND_ROUTE(1, "mono", 0.10)
-	MCFG_SOUND_ROUTE(2, "mono", 0.10)
-	MCFG_SOUND_ROUTE(3, "mono", 0.50)
+	ym2203_device &ym2203_2(YM2203(config, "2203.2", MAIN_CLOCK_12/8)); /* verified */
+	ym2203_2.add_route(0, "mono", 0.10);
+	ym2203_2.add_route(1, "mono", 0.10);
+	ym2203_2.add_route(2, "mono", 0.10);
+	ym2203_2.add_route(3, "mono", 0.50);
 
-	MCFG_DEVICE_ADD("pcm", SAMPLES)
-	MCFG_SAMPLES_CHANNELS(1)
-	MCFG_SAMPLES_START_CB(ninjakd2_state, ninjakd2_init_samples)
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 0.80)
-MACHINE_CONFIG_END
+	SAMPLES(config, m_pcm);
+	m_pcm->set_channels(1);
+	m_pcm->set_samples_start_callback(FUNC(ninjakd2_state::ninjakd2_init_samples));
+	m_pcm->add_route(ALL_OUTPUTS, "mono", 0.80);
+}
 
-MACHINE_CONFIG_START(ninjakd2_state::ninjakd2)
+void ninjakd2_state::ninjakd2(machine_config &config)
+{
 	ninjakd2_core(config);
-	MCFG_DEVICE_REPLACE("soundcpu", MC8123, MAIN_CLOCK_5)     /* verified */
-	MCFG_DEVICE_PROGRAM_MAP(ninjakd2_sound_cpu)
-	MCFG_DEVICE_IO_MAP(ninjakd2_sound_io)
-	MCFG_DEVICE_OPCODES_MAP(decrypted_opcodes_map)
-MACHINE_CONFIG_END
+	MC8123(config.replace(), m_soundcpu, MAIN_CLOCK_5); /* verified */
+	m_soundcpu->set_addrmap(AS_PROGRAM, &ninjakd2_state::ninjakd2_sound_cpu);
+	m_soundcpu->set_addrmap(AS_IO, &ninjakd2_state::ninjakd2_sound_io);
+	m_soundcpu->set_addrmap(AS_OPCODES, &ninjakd2_state::decrypted_opcodes_map);
+}
 
-MACHINE_CONFIG_START(ninjakd2_state::ninjakd2b)
+void ninjakd2_state::ninjakd2b(machine_config &config)
+{
 	ninjakd2_core(config);
-	MCFG_DEVICE_MODIFY("soundcpu")
-	MCFG_DEVICE_PROGRAM_MAP(ninjakd2_sound_cpu)
-	MCFG_DEVICE_OPCODES_MAP(decrypted_opcodes_map)
-MACHINE_CONFIG_END
+	m_soundcpu->set_addrmap(AS_PROGRAM, &ninjakd2_state::ninjakd2_sound_cpu);
+	m_soundcpu->set_addrmap(AS_OPCODES, &ninjakd2_state::decrypted_opcodes_map);
+}
 
-MACHINE_CONFIG_START(mnight_state::mnight)
+void mnight_state::mnight(machine_config &config)
+{
 	ninjakd2_core(config);
 
 	/* basic machine hardware */
-	MCFG_DEVICE_MODIFY("maincpu")
-	MCFG_DEVICE_PROGRAM_MAP(mnight_main_cpu)
-
-	MCFG_DEVICE_MODIFY("soundcpu")
-	MCFG_DEVICE_PROGRAM_MAP(ninjakid_nopcm_sound_cpu)
+	m_maincpu->set_addrmap(AS_PROGRAM, &mnight_state::mnight_main_cpu);
+	m_soundcpu->set_addrmap(AS_PROGRAM, &mnight_state::ninjakid_nopcm_sound_cpu);
 
 	/* video hardware */
 	MCFG_VIDEO_START_OVERRIDE(mnight_state,mnight)
 
 	/* sound hardware */
-	MCFG_DEVICE_REMOVE("pcm")
-MACHINE_CONFIG_END
+	config.device_remove("pcm");
+}
 
-MACHINE_CONFIG_START(mnight_state::arkarea)
+void mnight_state::arkarea(machine_config &config)
+{
 	mnight(config);
 
 	/* video hardware */
 	MCFG_VIDEO_START_OVERRIDE(mnight_state,arkarea)
-MACHINE_CONFIG_END
+}
 
-MACHINE_CONFIG_START(robokid_state::robokid)
+void robokid_state::robokid(machine_config &config)
+{
 	mnight(config);
 
 	/* basic machine hardware */
-	MCFG_DEVICE_MODIFY("maincpu")
-	MCFG_DEVICE_PROGRAM_MAP(robokid_main_cpu)
-
-	MCFG_DEVICE_MODIFY("soundcpu")
-	MCFG_DEVICE_PROGRAM_MAP(ninjakid_nopcm_sound_cpu)
+	m_maincpu->set_addrmap(AS_PROGRAM, &robokid_state::robokid_main_cpu);
+	m_soundcpu->set_addrmap(AS_PROGRAM, &robokid_state::ninjakid_nopcm_sound_cpu);
 
 	/* video hardware */
-	MCFG_GFXDECODE_MODIFY("gfxdecode", gfx_robokid)
-	MCFG_PALETTE_MODIFY("palette")
-	MCFG_PALETTE_ENTRIES(0x400)  // RAM is this large, but still only 0x300 colors used
-	MCFG_PALETTE_FORMAT(RRRRGGGGBBBBxxxx)
-	MCFG_PALETTE_ENDIANNESS(ENDIANNESS_BIG)
+	m_gfxdecode->set_info(gfx_robokid);
+	m_palette->set_format(palette_device::RGBx_444, 0x400);  // RAM is this large, but still only 0x300 colors used
+	m_palette->set_endianness(ENDIANNESS_BIG);
 
 	MCFG_VIDEO_START_OVERRIDE(robokid_state,robokid)
-	MCFG_SCREEN_MODIFY("screen")
-	MCFG_SCREEN_UPDATE_DRIVER(robokid_state,screen_update_robokid)
-MACHINE_CONFIG_END
 
-MACHINE_CONFIG_START(omegaf_state::omegaf)
+	m_screen->set_screen_update(FUNC(robokid_state::screen_update_robokid));
+}
+
+void omegaf_state::omegaf(machine_config &config)
+{
 	robokid(config);
 
 	/* basic machine hardware */
-	MCFG_DEVICE_MODIFY("maincpu")
-	MCFG_DEVICE_PROGRAM_MAP(omegaf_main_cpu)
+	m_maincpu->set_addrmap(AS_PROGRAM, &omegaf_state::omegaf_main_cpu);
 
-	MCFG_DEVICE_MODIFY("soundcpu")
-	MCFG_DEVICE_PROGRAM_MAP(ninjakid_nopcm_sound_cpu)
+	m_soundcpu->set_addrmap(AS_PROGRAM, &omegaf_state::ninjakid_nopcm_sound_cpu);
 
-//	MCFG_MACHINE_START_OVERRIDE(ninjakd2_state,omegaf)
-//	MCFG_MACHINE_RESET_OVERRIDE(ninjakd2_state,omegaf)
+//  MCFG_MACHINE_START_OVERRIDE(ninjakd2_state,omegaf)
+//  MCFG_MACHINE_RESET_OVERRIDE(ninjakd2_state,omegaf)
 
 	/* video hardware */
 	MCFG_VIDEO_START_OVERRIDE(omegaf_state,omegaf)
-	MCFG_SCREEN_MODIFY("screen")
-	MCFG_SCREEN_UPDATE_DRIVER(omegaf_state,screen_update_omegaf)
-MACHINE_CONFIG_END
+
+	m_screen->set_screen_update(FUNC(omegaf_state::screen_update_omegaf));
+}
 
 
 
@@ -1684,7 +1672,7 @@ void robokid_state::motion_error_kludge(uint16_t offset)
 	ROM[2] = 0x18;
 	ROM[3] = 0xf6; // jr $-8
 
-	m_maincpu->space(AS_PROGRAM).install_read_handler(offset, offset, read8_delegate(FUNC(robokid_state::motion_error_verbose_r), this));
+	m_maincpu->space(AS_PROGRAM).install_read_handler(offset, offset, read8_delegate(*this, FUNC(robokid_state::motion_error_verbose_r)));
 }
 
 void robokid_state::init_robokid()

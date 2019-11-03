@@ -38,15 +38,15 @@ public:
 
 	void sleic(machine_config &config);
 	void sleic_map(address_map &map);
-protected:
 
+	void init_sleic();
+
+private:
 	// devices
 	required_device<cpu_device> m_maincpu;
 
 	// driver_device overrides
 	virtual void machine_reset() override;
-public:
-	void init_sleic();
 };
 
 
@@ -67,11 +67,12 @@ void sleic_state::init_sleic()
 {
 }
 
-MACHINE_CONFIG_START(sleic_state::sleic)
+void sleic_state::sleic(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", I8088, 8000000)
-	MCFG_DEVICE_PROGRAM_MAP(sleic_map)
-MACHINE_CONFIG_END
+	I8088(config, m_maincpu, 8000000);
+	m_maincpu->set_addrmap(AS_PROGRAM, &sleic_state::sleic_map);
+}
 
 /*-------------------------------------------------------------------
 / Bike Race (1992)

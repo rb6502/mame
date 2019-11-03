@@ -57,12 +57,55 @@ public:
 		, m_palette(*this, "palette")
 		, m_tiles(*this, "tile")
 		, m_digits(*this, "digit%u", 0U)
+		, m_outs(*this, "out%u", 0U)
 	{
 	}
 
+	void model1(machine_config &config);
+	void model1_hle(machine_config &config);
+
+	void vf(machine_config &config);
+	void vr(machine_config &config);
+	void vformula(machine_config &config);
+	void swa(machine_config &config);
+	void wingwar(machine_config &config);
+	void wingwar360(machine_config &config);
+	void netmerc(machine_config &config);
+
+	struct spoint_t
+	{
+		int32_t x, y;
+	};
+
+	struct point_t
+	{
+		float x, y, z;
+		float xx, yy;
+		spoint_t s;
+	};
+
+	class quad_t
+	{
+	public:
+		quad_t() { }
+		quad_t(int ccol, float cz, point_t* p0, point_t* p1, point_t* p2, point_t* p3)
+			: p{ p0, p1, p2, p3 }
+			, z(cz)
+			, col(ccol)
+		{
+		}
+
+		int compare(const quad_t* other) const;
+
+		point_t *p[4] = { nullptr, nullptr, nullptr, nullptr };
+		float z = 0;
+		int col = 0;
+	};
+
+private:
 	// Machine
-	DECLARE_MACHINE_START(model1);
-	DECLARE_MACHINE_RESET(model1);
+	virtual void machine_start() override;
+	virtual void machine_reset() override;
 
 	DECLARE_READ8_MEMBER(io_r);
 	DECLARE_WRITE8_MEMBER(io_w);
@@ -116,49 +159,19 @@ public:
 	u32 m_copro_isqrt_base;
 	u32 m_copro_atan_base[4];
 	u32 m_copro_data_base;
-	u32 m_copro_ram_adr;
+	u32 m_copro_ram_adr[4];
 
 	uint16_t m_r360_state;
 	DECLARE_READ8_MEMBER(r360_r);
 	DECLARE_WRITE8_MEMBER(r360_w);
 
 	// Rendering
-	DECLARE_VIDEO_START(model1);
+	virtual void video_start() override;
 	DECLARE_READ16_MEMBER(model1_listctl_r);
 	DECLARE_WRITE16_MEMBER(model1_listctl_w);
 
 	uint32_t screen_update_model1(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 	DECLARE_WRITE_LINE_MEMBER(screen_vblank_model1);
-
-	struct spoint_t
-	{
-		int32_t x, y;
-	};
-
-	struct point_t
-	{
-		float x, y, z;
-		float xx, yy;
-		spoint_t s;
-	};
-
-	class quad_t
-	{
-	public:
-		quad_t() { }
-		quad_t(int ccol, float cz, point_t* p0, point_t* p1, point_t* p2, point_t* p3)
-			: p{ p0, p1, p2, p3 }
-			, z(cz)
-			, col(ccol)
-		{
-		}
-
-		int compare(const quad_t* other) const;
-
-		point_t *p[4] = { nullptr, nullptr, nullptr, nullptr };
-		float z = 0;
-		int col = 0;
-	};
 
 	struct lightparam_t
 	{
@@ -203,17 +216,6 @@ public:
 		lightparam_t lightparams[32];
 	};
 
-	void model1(machine_config &config);
-	void model1_hle(machine_config &config);
-
-	void vf(machine_config &config);
-	void vr(machine_config &config);
-	void vformula(machine_config &config);
-	void swa(machine_config &config);
-	void wingwar(machine_config &config);
-	void wingwar360(machine_config &config);
-	void netmerc(machine_config &config);
-
 	void model1_io(address_map &map);
 	void model1_mem(address_map &map);
 	void model1_comm_mem(address_map &map);
@@ -226,7 +228,6 @@ public:
 
 	void polhemus_map(address_map &map);
 
-private:
 	// Machine
 	void irq_raise(int level);
 	void irq_init();
@@ -389,11 +390,11 @@ private:
 	};
 
 	std::unique_ptr<view_t> m_view;
-	point_t *m_pointdb;
+	std::unique_ptr<point_t[]> m_pointdb;
 	point_t *m_pointpt;
-	quad_t      *m_quaddb;
+	std::unique_ptr<quad_t[]> m_quaddb;
 	quad_t      *m_quadpt;
-	quad_t      **m_quadind;
+	std::unique_ptr<quad_t *[]> m_quadind;
 	offs_t      m_pushpc;
 	u32 m_copro_hle_active_list_pos, m_copro_hle_active_list_length;
 	typedef void (model1_state::*tgp_func)();
@@ -505,16 +506,16 @@ private:
 
 	// I/O related
 	output_finder<2> m_digits;
+	output_finder<8> m_outs;
 	DECLARE_READ8_MEMBER(dpram_r);
+	DECLARE_WRITE8_MEMBER(gen_outputs_w);
 	DECLARE_WRITE8_MEMBER(vf_outputs_w);
 	DECLARE_WRITE8_MEMBER(vr_outputs_w);
 	DECLARE_WRITE8_MEMBER(swa_outputs_w);
 	DECLARE_WRITE8_MEMBER(wingwar_outputs_w);
 	DECLARE_WRITE8_MEMBER(wingwar360_outputs_w);
 	DECLARE_WRITE8_MEMBER(netmerc_outputs_w);
+	DECLARE_WRITE8_MEMBER(drive_board_w);
 };
-
-
-/*----------- defined in machine/model1.c -----------*/
 
 #endif // MAME_INCLUDES_MODEL1_H

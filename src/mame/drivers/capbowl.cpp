@@ -130,7 +130,7 @@ void capbowl_state::device_timer(emu_timer &timer, device_timer_id id, int param
 		update(ptr, param);
 		break;
 	default:
-		assert_always(false, "Unknown id in capbowl_state::device_timer");
+		throw emu_fatalerror("Unknown id in capbowl_state::device_timer");
 	}
 }
 
@@ -184,7 +184,7 @@ WRITE8_MEMBER(capbowl_state::track_reset_w)
 	m_last_trackball_val[0] = ioport("TRACKY")->read();
 	m_last_trackball_val[1] = ioport("TRACKX")->read();
 
-	m_watchdog->reset_w(space, offset, data);
+	m_watchdog->watchdog_reset();
 }
 
 
@@ -198,7 +198,7 @@ WRITE8_MEMBER(capbowl_state::track_reset_w)
 WRITE8_MEMBER(capbowl_state::sndcmd_w)
 {
 	m_audiocpu->set_input_line(M6809_IRQ_LINE, HOLD_LINE);
-	m_soundlatch->write(space, offset, data);
+	m_soundlatch->write(data);
 }
 
 
@@ -316,68 +316,68 @@ void capbowl_state::machine_reset()
 }
 
 
-MACHINE_CONFIG_START(capbowl_state::capbowl)
-
+void capbowl_state::capbowl(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_DEVICE_ADD("maincpu", MC6809E, MASTER_CLOCK / 4) // MC68B09EP
-	MCFG_DEVICE_PROGRAM_MAP(capbowl_map)
-	MCFG_DEVICE_VBLANK_INT_DRIVER("screen", capbowl_state,  interrupt)
+	MC6809E(config, m_maincpu, MASTER_CLOCK / 4); // MC68B09EP
+	m_maincpu->set_addrmap(AS_PROGRAM, &capbowl_state::capbowl_map);
+	m_maincpu->set_vblank_int("screen", FUNC(capbowl_state::interrupt));
 
-	MCFG_WATCHDOG_ADD("watchdog")
-	MCFG_WATCHDOG_TIME_INIT(PERIOD_OF_555_ASTABLE(100000.0, 100000.0, 0.1e-6) * 15.5) // ~0.3s
+	// watchdog: 555 timer 16 cycles, edge triggered, ~0.3s
+	attotime const period = PERIOD_OF_555_ASTABLE(100000.0, 100000.0, 0.1e-6);
+	WATCHDOG_TIMER(config, m_watchdog).set_time(period * 16 - period / 2);
 
-	MCFG_DEVICE_ADD("audiocpu", MC6809E, MASTER_CLOCK / 4) // MC68B09EP
-	MCFG_DEVICE_PROGRAM_MAP(sound_map)
-//  MCFG_WATCHDOG_TIME_INIT(PERIOD_OF_555_ASTABLE(100000.0, 100000.0, 0.1e-6) * 15.5) // TODO
+	MC6809E(config, m_audiocpu, MASTER_CLOCK / 4); // MC68B09EP
+	m_audiocpu->set_addrmap(AS_PROGRAM, &capbowl_state::sound_map);
 
-	MCFG_NVRAM_ADD_RANDOM_FILL("nvram")
+	NVRAM(config, "nvram", nvram_device::DEFAULT_RANDOM);
 
-	MCFG_TICKET_DISPENSER_ADD("ticket", attotime::from_msec(100), TICKET_MOTOR_ACTIVE_HIGH, TICKET_STATUS_ACTIVE_LOW)
+	TICKET_DISPENSER(config, "ticket", attotime::from_msec(100), TICKET_MOTOR_ACTIVE_HIGH, TICKET_STATUS_ACTIVE_LOW);
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_SIZE(360, 256)
-	MCFG_SCREEN_VISIBLE_AREA(0, 359, 0, 244)
-	MCFG_SCREEN_REFRESH_RATE(57)
-	MCFG_SCREEN_UPDATE_DRIVER(capbowl_state, screen_update)
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_size(360, 256);
+	m_screen->set_visarea(0, 359, 0, 244);
+	m_screen->set_refresh_hz(57);
+	m_screen->set_screen_update(FUNC(capbowl_state::screen_update));
 
-	MCFG_DEVICE_ADD("tms34061", TMS34061, 0)
-	MCFG_TMS34061_ROWSHIFT(8)  /* VRAM address is (row << rowshift) | col */
-	MCFG_TMS34061_VRAM_SIZE(0x10000) /* size of video RAM */
-	MCFG_TMS34061_INTERRUPT_CB(INPUTLINE("maincpu", M6809_FIRQ_LINE))      /* interrupt gen callback */
+	TMS34061(config, m_tms34061, 0);
+	m_tms34061->set_rowshift(8);  /* VRAM address is (row << rowshift) | col */
+	m_tms34061->set_vram_size(0x10000);
+	m_tms34061->int_callback().set_inputline("maincpu", M6809_FIRQ_LINE);
 
 	/* sound hardware */
 	SPEAKER(config, "speaker").front_center();
 
-	MCFG_GENERIC_LATCH_8_ADD("soundlatch")
+	GENERIC_LATCH_8(config, m_soundlatch);
 
-	MCFG_DEVICE_ADD("ymsnd", YM2203, MASTER_CLOCK / 2)
-	MCFG_YM2203_IRQ_HANDLER(INPUTLINE("audiocpu", M6809_FIRQ_LINE))
-	MCFG_AY8910_PORT_A_READ_CB(READLINE("ticket", ticket_dispenser_device, line_r)) MCFG_DEVCB_BIT(7)
-	MCFG_AY8910_PORT_B_WRITE_CB(WRITELINE("ticket", ticket_dispenser_device, motor_w)) MCFG_DEVCB_BIT(7)  /* Also a status LED. See memory map above */
-	MCFG_SOUND_ROUTE(0, "speaker", 0.07)
-	MCFG_SOUND_ROUTE(1, "speaker", 0.07)
-	MCFG_SOUND_ROUTE(2, "speaker", 0.07)
-	MCFG_SOUND_ROUTE(3, "speaker", 0.75)
+	ym2203_device &ymsnd(YM2203(config, "ymsnd", MASTER_CLOCK / 2));
+	ymsnd.irq_handler().set_inputline(m_audiocpu, M6809_FIRQ_LINE);
+	ymsnd.port_a_read_callback().set("ticket", FUNC(ticket_dispenser_device::line_r)).lshift(7);
+	ymsnd.port_b_write_callback().set("ticket", FUNC(ticket_dispenser_device::motor_w)).bit(7); // Also a status LED. See memory map above
+	ymsnd.add_route(0, "speaker", 0.07);
+	ymsnd.add_route(1, "speaker", 0.07);
+	ymsnd.add_route(2, "speaker", 0.07);
+	ymsnd.add_route(3, "speaker", 0.75);
 
-	MCFG_DEVICE_ADD("dac", DAC0832, 0) MCFG_SOUND_ROUTE(ALL_OUTPUTS, "speaker", 0.5)
-	MCFG_DEVICE_ADD("vref", VOLTAGE_REGULATOR, 0) MCFG_VOLTAGE_REGULATOR_OUTPUT(5.0)
-	MCFG_SOUND_ROUTE(0, "dac", 1.0, DAC_VREF_POS_INPUT) MCFG_SOUND_ROUTE(0, "dac", -1.0, DAC_VREF_NEG_INPUT)
-MACHINE_CONFIG_END
+	DAC0832(config, "dac", 0).add_route(ALL_OUTPUTS, "speaker", 0.5);
+	voltage_regulator_device &vref(VOLTAGE_REGULATOR(config, "vref"));
+	vref.add_route(0, "dac", 1.0, DAC_VREF_POS_INPUT);
+	vref.add_route(0, "dac", -1.0, DAC_VREF_NEG_INPUT);
+}
 
 
-MACHINE_CONFIG_START(capbowl_state::bowlrama)
+void capbowl_state::bowlrama(machine_config &config)
+{
 	capbowl(config);
 
 	/* basic machine hardware */
 
-	MCFG_DEVICE_MODIFY("maincpu")
-	MCFG_DEVICE_PROGRAM_MAP(bowlrama_map)
+	m_maincpu->set_addrmap(AS_PROGRAM, &capbowl_state::bowlrama_map);
 
 	/* video hardware */
-	MCFG_SCREEN_MODIFY("screen")
-	MCFG_SCREEN_VISIBLE_AREA(0, 359, 0, 239)
-MACHINE_CONFIG_END
+	m_screen->set_visarea(0, 359, 0, 239);
+}
 
 
 

@@ -29,25 +29,26 @@ public:
 		, m_beta(*this, BETA_DISK_TAG)
 	{ }
 
+	void atm(machine_config &config);
+	void atmtb2(machine_config &config);
+
+private:
 	DECLARE_WRITE8_MEMBER(atm_port_7ffd_w);
 	DECLARE_READ8_MEMBER(beta_neutral_r);
 	DECLARE_READ8_MEMBER(beta_enable_r);
 	DECLARE_READ8_MEMBER(beta_disable_r);
 	DECLARE_MACHINE_RESET(atm);
 
-	void atm(machine_config &config);
-	void atmtb2(machine_config &config);
 	void atm_io(address_map &map);
 	void atm_mem(address_map &map);
 	void atm_switch(address_map &map);
-protected:
+
 	required_memory_bank m_bank1;
 	required_memory_bank m_bank2;
 	required_memory_bank m_bank3;
 	required_memory_bank m_bank4;
 	required_device<beta_disk_device> m_beta;
 
-private:
 	address_space *m_program;
 	uint8_t *m_p_ram;
 	void atm_update_memory();
@@ -186,25 +187,28 @@ static GFXDECODE_START( gfx_atmtb2 )
 GFXDECODE_END
 
 
-MACHINE_CONFIG_START(atm_state::atm)
+void atm_state::atm(machine_config &config)
+{
 	spectrum_128(config);
-	MCFG_DEVICE_MODIFY("maincpu")
-	MCFG_DEVICE_PROGRAM_MAP(atm_mem)
-	MCFG_DEVICE_IO_MAP(atm_io)
-	MCFG_DEVICE_OPCODES_MAP(atm_switch)
+
+	m_maincpu->set_addrmap(AS_PROGRAM, &atm_state::atm_mem);
+	m_maincpu->set_addrmap(AS_IO, &atm_state::atm_io);
+	m_maincpu->set_addrmap(AS_OPCODES, &atm_state::atm_switch);
+
 	MCFG_MACHINE_RESET_OVERRIDE(atm_state, atm )
 
-	MCFG_BETA_DISK_ADD(BETA_DISK_TAG)
+	BETA_DISK(config, m_beta, 0);
 
-	MCFG_GFXDECODE_MODIFY("gfxdecode", gfx_atm)
+	subdevice<gfxdecode_device>("gfxdecode")->set_info(gfx_atm);
 
-	MCFG_DEVICE_REMOVE("exp")
-MACHINE_CONFIG_END
+	config.device_remove("exp");
+}
 
-MACHINE_CONFIG_START(atm_state::atmtb2)
+void atm_state::atmtb2(machine_config &config)
+{
 	atm(config);
-	MCFG_GFXDECODE_MODIFY("gfxdecode", gfx_atmtb2)
-MACHINE_CONFIG_END
+	subdevice<gfxdecode_device>("gfxdecode")->set_info(gfx_atmtb2);
+}
 
 
 /***************************************************************************

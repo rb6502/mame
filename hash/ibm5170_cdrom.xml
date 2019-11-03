@@ -1981,7 +1981,7 @@
 	<software name="f29ret" supported="no">
 		<description>F-29 Retaliator</description>
 		<year>1995</year>
-		<publisher>Hit Squad</publisher>
+		<publisher>The Hit Squad</publisher>
 
 		<part name="cdrom" interface="cdrom">
 			<diskarea name="cdrom">
@@ -2141,7 +2141,7 @@
 			</diskarea>
 		</part>
 	</software>
-	
+
 	<!-- Untouched image from original CD created with an ASUS DRW-1814BLT (EAC drive sample read offset reported as +6)
 	   If you subtract 0x18 (4 * 6) bytes from a .wav extracted from this CHD the audio matches a rip done with EAC (verified) -->
 	<software name="kingsq6e">

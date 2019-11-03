@@ -63,6 +63,8 @@ public:
 	}
 
 	void sart3733(machine_config &config);
+
+private:
 	void sart3733_memory(address_map &map);
 	void sart3733_rom(address_map &map);
 	void sart3733_status(address_map &map);
@@ -85,12 +87,13 @@ public:
 }
 
 
-MACHINE_CONFIG_START(sart3733_state::sart3733)
+void sart3733_state::sart3733(machine_config &config)
+{
 	i4040_cpu_device &cpu(I4040(config, "maincpu", 750'000)); // clock speed is a complete guess - can't see crystal or multi-phase clock generator
 	cpu.set_rom_map(&sart3733_state::sart3733_rom);
 	cpu.set_ram_memory_map(&sart3733_state::sart3733_memory);
 	cpu.set_ram_status_map(&sart3733_state::sart3733_status);
-MACHINE_CONFIG_END
+}
 
 
 INPUT_PORTS_START(sart3733)

@@ -262,12 +262,13 @@ DEFINE_DEVICE_TYPE(ISA8_XTIDE, xtide_device, "xtide", "XT-IDE Fixed Drive Adapte
 //  device_add_mconfig - add device configuration
 //-------------------------------------------------
 
-MACHINE_CONFIG_START(xtide_device::device_add_mconfig)
-	MCFG_ATA_INTERFACE_ADD("ata", ata_devices, "hdd", nullptr, false)
-	MCFG_ATA_INTERFACE_IRQ_HANDLER(WRITELINE(*this, xtide_device, ide_interrupt))
+void xtide_device::device_add_mconfig(machine_config &config)
+{
+	ATA_INTERFACE(config, m_ata).options(ata_devices, "hdd", nullptr, false);
+	m_ata->irq_handler().set(FUNC(xtide_device::ide_interrupt));
 
-	MCFG_EEPROM_2864_ADD("eeprom")
-MACHINE_CONFIG_END
+	EEPROM_2864(config, m_eeprom);
+}
 
 //-------------------------------------------------
 //  input_ports - device-specific input ports
@@ -322,8 +323,8 @@ void xtide_device::device_reset()
 	int io_address      = ((ioport("IO_ADDRESS")->read() & 0x0F) * 0x20) + 0x200;
 	m_irq_number        = (ioport("IRQ")->read() & 0x07);
 
-	m_isa->install_memory(base_address, base_address + 0x1fff, read8_delegate(FUNC(eeprom_parallel_28xx_device::read), &(*m_eeprom)), write8_delegate(FUNC(eeprom_parallel_28xx_device::write), &(*m_eeprom)));
-	m_isa->install_device(io_address, io_address + 0xf, read8_delegate(FUNC(xtide_device::read), this), write8_delegate(FUNC(xtide_device::write), this));
+	m_isa->install_memory(base_address, base_address + 0x1fff, read8_delegate(*m_eeprom, FUNC(eeprom_parallel_28xx_device::read)), write8_delegate(*m_eeprom, FUNC(eeprom_parallel_28xx_device::write)));
+	m_isa->install_device(io_address, io_address + 0xf, read8_delegate(*this, FUNC(xtide_device::read)), write8_delegate(*this, FUNC(xtide_device::write)));
 
 	//logerror("xtide_device::device_reset(), bios_base=0x%5X to 0x%5X, I/O=0x%3X, IRQ=%d\n",base_address,base_address + (16*1024)  -1 ,io_address,irq);
 }

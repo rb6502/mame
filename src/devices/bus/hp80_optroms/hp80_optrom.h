@@ -18,8 +18,15 @@
 // Size of optional ROMs (8k)
 static constexpr offs_t HP80_OPTROM_SIZE = 0x2000;
 
-class hp80_optrom_cart_device : public device_t,
-								public device_slot_card_interface
+void hp80_optrom_slot_devices(device_slot_interface &device);
+
+class device_hp80_optrom_interface : public device_interface
+{
+protected:
+	device_hp80_optrom_interface(const machine_config &mconfig, device_t &device);
+};
+
+class hp80_optrom_cart_device : public device_t, public device_hp80_optrom_interface
 {
 public:
 	// construction/destruction
@@ -34,10 +41,19 @@ protected:
 
 class hp80_optrom_slot_device : public device_t,
 								public device_image_interface,
-								public device_slot_interface
+								public device_single_card_slot_interface<device_hp80_optrom_interface>
 {
 public:
 	// construction/destruction
+	hp80_optrom_slot_device(machine_config const &mconfig, char const *tag, device_t *owner)
+		: hp80_optrom_slot_device(mconfig, tag, owner, (uint32_t)0)
+	{
+		option_reset();
+		hp80_optrom_slot_devices(*this);
+		set_default_option(nullptr);
+		set_fixed(false);
+	}
+
 	hp80_optrom_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 	virtual ~hp80_optrom_slot_device();
 
@@ -64,14 +80,12 @@ protected:
 	// slot interface overrides
 	virtual std::string get_default_card_software(get_default_card_software_hook &hook) const override;
 
-	hp80_optrom_cart_device *m_cart;
+	device_hp80_optrom_interface *m_cart;
 	uint8_t m_select_code;
 };
 
 // device type definition
 DECLARE_DEVICE_TYPE(HP80_OPTROM_SLOT, hp80_optrom_slot_device)
 DECLARE_DEVICE_TYPE(HP80_OPTROM_CART, hp80_optrom_cart_device)
-
-void hp80_optrom_slot_devices(device_slot_interface &device);
 
 #endif // MAME_BUS_HP80_OPTROMS_HP80_OPTROM_H

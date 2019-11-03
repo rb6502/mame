@@ -16,12 +16,6 @@
 #include "machine/bankdev.h"
 #include "machine/timer.h"
 
-#define MCFG_DCS2_AUDIO_DRAM_IN_MB(_dram_in_mb) \
-	downcast<dcs_audio_device &>(*device).set_dram_in_mb(_dram_in_mb);
-
-#define MCFG_DCS2_AUDIO_POLLING_OFFSET(_polling_offset) \
-	downcast<dcs_audio_device &>(*device).set_polling_offset(_polling_offset);
-
 
 class dcs_audio_device : public device_t
 {
@@ -251,6 +245,7 @@ protected:
 	int m_dram_in_mb;
 
 	optional_shared_ptr<uint16_t> m_iram;
+	optional_device<device_execute_interface> m_maincpu;
 };
 
 

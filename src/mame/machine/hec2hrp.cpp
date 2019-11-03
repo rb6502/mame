@@ -327,9 +327,9 @@ WRITE8_MEMBER(hec2hrp_state::color_a_w)
 		if (m_write_cassette==0)
 		{
 				m_cassette->change_state(
-						CASSETTE_MOTOR_ENABLED ,
+						CASSETTE_MOTOR_ENABLED,
 						CASSETTE_MASK_MOTOR);
-			// m_cassette->set_state((cassette_state)(CASSETTE_PLAY | CASSETTE_SPEAKER_ENABLED | CASSETTE_MOTOR_ENABLED ));
+			// m_cassette->set_state(CASSETTE_PLAY | CASSETTE_SPEAKER_ENABLED | CASSETTE_MOTOR_ENABLED);
 		}
 	}
 	else
@@ -349,8 +349,8 @@ WRITE8_MEMBER(hec2hrp_state::color_a_w)
 			m_counter_write = 6;
 			if (m_write_cassette==0)
 			{   /* C'est la 1er fois => record*/
-							m_cassette->change_state(
-						CASSETTE_MOTOR_ENABLED ,
+				m_cassette->change_state(
+						CASSETTE_MOTOR_ENABLED,
 						CASSETTE_MASK_MOTOR);
 				m_cassette->set_state(CASSETTE_RECORD);
 				m_write_cassette=1;
@@ -376,7 +376,7 @@ WRITE8_MEMBER(hec2hrp_state::color_b_w)
 	if (data & 0x40) m_hector_color[2] |= 8; else m_hector_color[2] &= 7;
 
 	/* Play bit*/
-	m_discrete->write(space, NODE_01,  (data & 0x80) ? 0:1 );
+	m_discrete->write(NODE_01,  (data & 0x80) ? 0:1 );
 }
 
 
@@ -788,33 +788,32 @@ static DISCRETE_SOUND_START( hec2hrp_discrete )
 	DISCRETE_OUTPUT(NODE_01, 5000)
 DISCRETE_SOUND_END
 
-MACHINE_CONFIG_START(hec2hrp_state::hector_audio)
+void hec2hrp_state::hector_audio(machine_config &config)
+{
 	SPEAKER(config, "mono").front_center();
-	WAVE(config, "wave", "cassette").add_route(0, "mono", 0.25);  /* Sound level for cassette, as it is in mono => output channel=0*/
+	WAVE(config, "wave", m_cassette).add_route(0, "mono", 0.25);  /* Sound level for cassette, as it is in mono => output channel=0*/
 
-	MCFG_DEVICE_ADD("sn76477", SN76477)
-	MCFG_SN76477_NOISE_PARAMS(RES_K(47), RES_K(330), CAP_P(390)) // noise + filter
-	MCFG_SN76477_DECAY_RES(RES_K(680))                  // decay_res
-	MCFG_SN76477_ATTACK_PARAMS(CAP_U(47), RES_K(180))   // attack_decay_cap + attack_res
-	MCFG_SN76477_AMP_RES(RES_K(33))                     // amplitude_res
-	MCFG_SN76477_FEEDBACK_RES(RES_K(100))               // feedback_res
-	MCFG_SN76477_VCO_PARAMS(2, CAP_N(47), RES_K(1000))  // VCO volt + cap + res
-	MCFG_SN76477_PITCH_VOLTAGE(2)                       // pitch_voltage
-	MCFG_SN76477_SLF_PARAMS(CAP_U(0.1), RES_K(180))     // slf caps + res
-	MCFG_SN76477_ONESHOT_PARAMS(CAP_U(1.00001), RES_K(10000))   // oneshot caps + res
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 0.1)
+	SN76477(config, m_sn);
+	m_sn->set_noise_params(RES_K(47), RES_K(330), CAP_P(390));
+	m_sn->set_decay_res(RES_K(680));
+	m_sn->set_attack_params(CAP_U(47), RES_K(180));
+	m_sn->set_amp_res(RES_K(33));
+	m_sn->set_feedback_res(RES_K(100));
+	m_sn->set_vco_params(2, CAP_N(47), RES_K(1000));
+	m_sn->set_pitch_voltage(2);
+	m_sn->set_slf_params(CAP_U(0.1), RES_K(180));
+	m_sn->set_oneshot_params(CAP_U(1.00001), RES_K(10000));
+	m_sn->add_route(ALL_OUTPUTS, "mono", 0.1);
 
-	MCFG_DEVICE_ADD("discrete", DISCRETE, hec2hrp_discrete) /* Son 1bit*/
-	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 1.0)
+	DISCRETE(config, m_discrete, hec2hrp_discrete).add_route(ALL_OUTPUTS, "mono", 1.0); /* 1-bit sound */
+}
 
-MACHINE_CONFIG_END
+/*  DISK II drive for:
+        Hector HRX
+        Hector MX40c
+        Hector MX80c
 
-/*	DISK II drive for:
-		Hector HRX
-		Hector MX40c
-		Hector MX80c
-
-	JJStacino  jj.stacino@aliceadsl.fr
+    JJStacino  jj.stacino@aliceadsl.fr
 
     15/02/2010 : Start of the disc2 project! JJStacino
     26/09/2010 : first sending with bug2 (the first "dir" command terminates in a crash of the Z80 disc II processor) -JJStacino
@@ -826,15 +825,15 @@ MACHINE_CONFIG_END
 /* Callback uPD request */
 
 /* How uPD765 works:
-	* First we send at uPD the string of command (p.e. 9 bytes for read starting by 0x46) on port 60h
-			between each byte, check the authorization of the uPD by reading the status register
-	* When the command is finish, the data arrive with DMA interrupt, then:
-			If read: in port 70 to retrieve the data,
-			If write: in port 70 send the data
-	* When all data had been send the uPD launch an INT
-	* The Z80 Disc2 writes in FF12 a flag
-	* if the flag is set, end of DMA function,
-	* At this point the Z80 can read the RESULT in port 61h
+    * First we send at uPD the string of command (p.e. 9 bytes for read starting by 0x46) on port 60h
+            between each byte, check the authorization of the uPD by reading the status register
+    * When the command is finish, the data arrive with DMA interrupt, then:
+            If read: in port 70 to retrieve the data,
+            If write: in port 70 send the data
+    * When all data had been send the uPD launch an INT
+    * The Z80 Disc2 writes in FF12 a flag
+    * if the flag is set, end of DMA function,
+    * At this point the Z80 can read the RESULT in port 61h
 */
 
 // Interrupt management
@@ -902,13 +901,13 @@ WRITE8_MEMBER( hec2hrp_state::disc2_io30_port_w)
 {
 }
 
-READ8_MEMBER( hec2hrp_state::disc2_io40_port_r)	/* Read data sent to Hector by Disc2 */
+READ8_MEMBER( hec2hrp_state::disc2_io40_port_r) /* Read data sent to Hector by Disc2 */
 {
 	m_hector_disc2_data_r_ready = 0x00;
 	return m_hector_disc2_data_read;
 }
 
-WRITE8_MEMBER( hec2hrp_state::disc2_io40_port_w)	/* Write data sent by Disc2 to Hector */
+WRITE8_MEMBER( hec2hrp_state::disc2_io40_port_w)    /* Write data sent by Disc2 to Hector */
 {
 	m_hector_disc2_data_write = data;
 	m_hector_disc2_data_w_ready = 0x80;
